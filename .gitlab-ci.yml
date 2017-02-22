@@ -14,7 +14,6 @@ check_import:
     - rabbitmq:3.6.6-management
   script:
     - docker run -id -p 15672:15672 --name rabbitmq rabbitmq:3.6.6-management 
-    - docker exec -i rabbitmq rabbitmq-plugins enable rabbitmq_management
     - rabbitmqadmin -H 172.16.22.74 -u USER_NAME -p PASSWORD export /home/rabbitmq-definition
     - rabbitmqadmin -H 192.168.66.59 -u USER_NAME -p PASSWORD import /home/rabbitmq-definition
 
