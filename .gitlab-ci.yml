@@ -14,7 +14,7 @@ check_import:
     - rabbitmq:3.6.6-management
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
-    - rabbitmqadmin import /home/rabbitmq-definition
+    - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
 
   tags:
     - ci
