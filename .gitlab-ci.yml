@@ -15,6 +15,8 @@ check_import:
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
+    - echo {"queues":[{"name":"notify_request_queue","vhost":"/dev","durable":true,"auto_delete":false,"arguments":{}}]} > /home/test.config
+    - rabbitmqadmin -H rabbitmq import /home/test.config
 
   tags:
     - ci
