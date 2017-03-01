@@ -15,7 +15,7 @@ check_import:
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
-    - rabbitmqadmin -H rabbitmq import /home/test.config
+    - rabbitmqadmin -H rabbitmq import /builds/ouzhou/rabbitmq-import-check/test.config
 
   tags:
     - ci
