@@ -1,0 +1,147 @@
+{
+   "rabbit_version":"3.6.6",
+   "users":[
+      {
+         "name":"demeter",
+         "password_hash":"6XICF3g8PbHlfs0EZBsArO5PdpF9nxVVBjoqiWitjP5/Xyv+",
+         "hashing_algorithm":"rabbit_password_hashing_sha256",
+         "tags":"management"
+      }
+   ],
+   "vhosts":[
+      {
+         "name":"fincloud"
+      }
+   ],
+   "permissions":[
+      {
+         "user":"admin",
+         "vhost":"/",
+         "configure":".*",
+         "write":".*",
+         "read":".*"
+      },
+      {
+         "user":"demeter",
+         "vhost":"fincloud",
+         "configure":"fincloud\\.exchange\\.(notification|oplog|alert)|fincloud\\.queue\\.(notification\\.(sms|email)|oplog|alert)",
+         "write":"fincloud\\.exchange\\.(notification|oplog|alert)|fincloud\\.queue\\.(notification\\.(sms|email)|oplog|alert)",
+         "read":"fincloud\\.exchange\\.(notification|oplog|alert)|fincloud\\.queue\\.(notification\\.(sms|email)|oplog|alert)"
+      }
+   ],
+   "queues":[
+      {
+         "name":"fincloud.queue.oplog",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.queue.alert",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.queue.notification.email",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.queue.notification.sms",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      }
+   ],
+   "exchanges":[
+      {
+         "name":"fincloud.exchange.alert",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.exchange.oplog",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{
+
+         }
+      }
+   ],
+   "bindings":[
+      {
+         "source":"fincloud.exchange.alert",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.alert",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.alert",
+         "arguments":{
+
+         }
+      },
+      {
+         "source":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.notification.email",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.email",
+         "arguments":{
+
+         }
+      },
+      {
+         "source":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.notification.sms",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.sms",
+         "arguments":{
+
+         }
+      },
+      {
+         "source":"fincloud.exchange.oplog",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.oplog",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.oplog",
+         "arguments":{
+
+         }
+      }
+   ]
+}

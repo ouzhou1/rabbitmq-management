@@ -1,0 +1,87 @@
+{
+   "rabbit_version":"3.6.6",
+   "users":[
+      {
+         "name":"rhea",
+         "password_hash":"TVj4dSVsaUHqOfwG3JVbIreqb8HBhek25V1YL1PFTHE/lLyW",
+         "hashing_algorithm":"rabbit_password_hashing_sha256",
+         "tags":"management"
+      },
+   ],
+   "vhosts":[
+      {
+         "name":"fincloud"
+      }
+   ],
+   "permissions":[
+      {
+         "user":"rhea",
+         "vhost":"fincloud",
+         "configure":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
+         "write":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
+         "read":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$"
+      },
+      {
+         "user":"admin",
+         "vhost":"/",
+         "configure":".*",
+         "write":".*",
+         "read":".*"
+      }
+   ],
+   "queues":[
+      {
+         "name":"fincloud.queue.notification.email",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      },
+      {
+         "name":"fincloud.queue.notification.sms",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{
+
+         }
+      }
+   ],
+   "exchanges":[
+      {
+         "name":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{
+
+         }
+      }
+   ],
+   "bindings":[
+      {
+         "source":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.notification.email",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.email",
+         "arguments":{
+
+         }
+      },
+      {
+         "source":"fincloud.exchange.notification",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.notification.sms",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.sms",
+         "arguments":{
+
+         }
+      }
+   ]
+}

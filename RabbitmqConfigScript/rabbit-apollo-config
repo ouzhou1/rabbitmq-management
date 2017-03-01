@@ -1,0 +1,136 @@
+{  
+   "rabbit_version":"3.6.6",
+   "users":[  
+      {  
+         "name":"apollo",
+         "password_hash":"VzfHeZ/jtCRh9jsxc8k4EDrw5KLAokUM5P97aizdMJi6gXPx",
+         "hashing_algorithm":"rabbit_password_hashing_sha256",
+         "tags":"management"
+      }
+   ],
+   "vhosts":[  
+      {  
+         "name":"fincloud"
+      }
+   ],
+   "permissions":[  
+      {  
+         "user":"admin",
+         "vhost":"/",
+         "configure":".*",
+         "write":".*",
+         "read":".*"
+      },
+      {  
+         "user":"apollo",
+         "vhost":"fincloud",
+         "configure":"^(fincloud\\.queue\\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan))|fincloud\\.exchange\\.(loan|order|oplog)$",
+         "write":"^fincloud\\.queue\\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\\.exchange\\.(loan|order|oplog)$",
+         "read":"^fincloud\\.queue\\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\\.exchange\\.(loan|order|oplog)$"
+      }
+   ],
+   "queues":[  
+      {  
+         "name":"fincloud.queue.loanConfirmation",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{  
+
+         }
+      },
+      {  
+         "name":"fincloud.queue.buyBackLoan",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{  
+
+         }
+      },
+      {  
+         "name":"fincloud.queue.cashPaymentLoan",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{  
+
+         }
+      },
+      {  
+         "name":"fincloud.queue.orderStatus",
+         "vhost":"fincloud",
+         "durable":true,
+         "auto_delete":false,
+         "arguments":{  
+
+         }
+      }
+   ],
+   "exchanges":[  
+      {  
+         "name":"fincloud.exchange.order",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{  
+
+         }
+      },
+      {  
+         "name":"fincloud.exchange.loan",
+         "vhost":"fincloud",
+         "type":"topic",
+         "durable":true,
+         "auto_delete":false,
+         "internal":false,
+         "arguments":{  
+
+         }
+      }
+   ],
+   "bindings":[  
+      {  
+         "source":"fincloud.exchange.loan",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.buyBackLoan",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.buyBackLoan",
+         "arguments":{  
+
+         }
+      },
+      {  
+         "source":"fincloud.exchange.loan",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.cashPaymentLoan",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.cashPaymentLoan",
+         "arguments":{  
+
+         }
+      },
+      {  
+         "source":"fincloud.exchange.loan",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.loanConfirmation",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.loanConfirmation",
+         "arguments":{  
+
+         }
+      },
+      {  
+         "source":"fincloud.exchange.order",
+         "vhost":"fincloud",
+         "destination":"fincloud.queue.orderStatus",
+         "destination_type":"queue",
+         "routing_key":"fincloud.routingKey.orderStatus",
+         "arguments":{  
+
+         }
+      }
+   ]
+}
