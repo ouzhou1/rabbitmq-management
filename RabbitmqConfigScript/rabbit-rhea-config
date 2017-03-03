@@ -6,7 +6,7 @@
          "password_hash":"TVj4dSVsaUHqOfwG3JVbIreqb8HBhek25V1YL1PFTHE/lLyW",
          "hashing_algorithm":"rabbit_password_hashing_sha256",
          "tags":"management"
-      },
+      }
    ],
    "vhosts":[
       {
@@ -23,7 +23,7 @@
       },
       {
          "user":"admin",
-         "vhost":"/",
+         "vhost":"fincloud",
          "configure":".*",
          "write":".*",
          "read":".*"

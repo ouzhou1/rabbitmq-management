@@ -20,6 +20,7 @@ rabbitmqadmin declare vhost name=fincloud
 #==================== declare permissions ====================
 # permission for metis to send message to fincloud.exchange.loan
 rabbitmqadmin declare permission vhost=fincloud user=metis configure="^fincloud\.exchange\.(loan|notification|oplog)|fincloud\.queue\.(notification\.(sms|email))|(oplog|cashPaymentLoan|buyBackLoan)$" write="^fincloud\.exchange\.(loan|notification|oplog)|fincloud\.queue\.(notification\.(sms|email))|(oplog|cashPaymentLoan|buyBackLoan)$" read="^fincloud\.exchange\.(loan|notification|oplog)|fincloud\.queue\.(notification\.(sms|email))|(oplog|cashPaymentLoan|buyBackLoan)$"
+rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
 
 #==================== declare exchanges ====================
 # exchange for sms

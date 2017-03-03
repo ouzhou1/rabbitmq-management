@@ -28,7 +28,8 @@ rabbitmqadmin declare user name=apollo password=apollo tags=management
 rabbitmqadmin declare vhost name=fincloud
 
 #==================== declare permissions ====================
-rabbitmqadmin -H 172.16.22.74 declare permission vhost=fincloud user=apollo configure="^(fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan))|fincloud\.exchange\.(loan|order|oplog)$" write="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$" read="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$"
+rabbitmqadmin declare permission vhost=fincloud user=apollo configure="^(fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan))|fincloud\.exchange\.(loan|order|oplog)$" write="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$" read="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$"
+rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
 
 #==================== declare exchanges ====================
 # exchange for loan

@@ -29,6 +29,7 @@ rabbitmqadmin declare vhost name=fincloud
 
 #==================== declare permissions ====================
 rabbitmqadmin declare permission vhost=fincloud user=toms configure="^fincloud\.(exchange|queue)\.oplog$" write="^fincloud\.(exchange|queue)\.oplog$" read="^fincloud\.(exchange|queue)\.oplog$"
+rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
 
 #==================== declare exchanges ====================
 # exchange for operation logs

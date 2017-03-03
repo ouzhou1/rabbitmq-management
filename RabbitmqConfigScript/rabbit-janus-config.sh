@@ -21,6 +21,7 @@ rabbitmqadmin declare vhost name=fincloud
 #==================== declare permissions ====================
 rabbitmqadmin declare permission vhost=fincloud user=janus_mobile configure="^(fincloud\.exchange\.notification)|(fincloud\.queue\.notification\.(sms|email))$" write="^(fincloud\.exchange\.notification)|(fincloud\.queue\.notification\.(sms|email))$" read="^(fincloud\.exchange\.notification)|(fincloud\.queue\.notification\.(sms|email))$"
 rabbitmqadmin declare permission vhost=fincloud user=janus_platform configure="^(fincloud\.exchange\.order)|(fincloud\.queue\.orderStatus)$" write="^(fincloud\.exchange\.order)|(fincloud\.queue\.orderStatus)$" read="^(fincloud\.exchange\.order)|(fincloud\.queue\.orderStatus)$"
+rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
 
 #==================== declare exchanges ====================
 # exchange for order

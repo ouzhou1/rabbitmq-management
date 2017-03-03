@@ -16,7 +16,7 @@
    "permissions":[  
       {  
          "user":"admin",
-         "vhost":"/",
+         "vhost":"fincloud",
          "configure":".*",
          "write":".*",
          "read":".*"

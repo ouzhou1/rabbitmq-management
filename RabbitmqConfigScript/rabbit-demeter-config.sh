@@ -19,6 +19,7 @@ rabbitmqadmin declare vhost name=fincloud
 
 #==================== declare permissions ====================
 rabbitmqadmin declare permission vhost=fincloud user=demeter configure="fincloud\.exchange\.(notification|oplog|alert)|fincloud\.queue\.(notification\.(sms|email)|oplog|alert)" write="fincloud\.exchange\.(notification|oplog|alert)|fincloud\.queue\.(notification\.(sms|email)|oplog|alert)" read="fincloud\.exchange\.(notification|oplog|alert)|fincloud\.queue\.(notification\.(sms|email)|oplog|alert)"
+rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
  
 #==================== declare exchanges ====================
 # exchange for sms
