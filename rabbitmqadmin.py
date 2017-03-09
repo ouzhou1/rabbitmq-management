@@ -622,19 +622,24 @@ class Management:
     def check_vhosts(self,check_content,check_name):
         exist_vhosts = []
         for item in check_content:
-            body = {}
-            path = '/api/%s/%s' % (check_name,item["name"])
-            if "tracing" in item.keys():
-                body["tracing"] = item["tracing"]
+            # mandatory keys
+            mandatory_keys = CHECKTABLE[check_name]["mandatory"]
+            # optional keys
+            optional_keys = CHECKTABLE[check_name]["optional"]
             # Check the keys
             for key in item:
-                assert_usage(key in ["name","tracing"],"Invalid field '%s'" % key)
+                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
             primary_key_dict = {}
             primary_key_dict["name"] = item["name"]
             assert_usage(item["name"] not in exist_vhosts,"'Queue with the primary keys: %s' is repeatedly defined!" % primary_key_dict["name"])
             exist_vhosts.append(item["name"])
             # Check the values by API
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            path = '/api/%s/%s' % (check_name, item["name"])
             self.http("PUT", path, json.dumps(body))
 
     def check_queues(self,check_content,check_name):
@@ -642,13 +647,8 @@ class Management:
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            path = '/api/%s/%s/%s' % (check_name,item["vhost"],item["name"])
-            body_dict = {}
             # optional keys
             optional_keys = CHECKTABLE[check_name]["optional"]
-            for opk in optional_keys:
-                if opk in item:
-                    body_dict[opk] = item[opk]
             # Check the keys
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
@@ -659,21 +659,20 @@ class Management:
             assert_usage(primary_key_dict not in exist_queues, "'Queue with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
             exist_queues.append(primary_key_dict)
             # Check the values by API
-            self.http("PUT", path, json.dumps(body_dict))
+            path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
 
     def check_exchanges(self,check_content,check_name):
         exist_exchange = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            path = '/api/%s/%s/%s' % (check_name,item["vhost"],item["name"])
-            body_dict = {}
-            body_dict["type"] = item["type"]
             # optional keys
             optional_keys = CHECKTABLE[check_name]["optional"]
-            for opk in optional_keys:
-                if opk in item:
-                    body_dict[opk] = item[opk]
             # Check the keys
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
@@ -685,24 +684,24 @@ class Management:
                          "'Exchange with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
             exist_exchange.append(primary_key_dict)
             # Check the values by API
-            self.http("PUT", path, json.dumps(body_dict))
+            path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
+            body = {}
+            body["type"] = item["type"]
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
 
     def check_bindings(self,check_content,check_name):
         exist_bindings = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            destination_type = ["queue","exchange"]
-            assert_usage(item["destination_type"] in destination_type,"Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
-            path = '/api/%s/%s/e/%s/%s/%s' % (check_name,item["vhost"],item["source"],item["destination_type"][0],item["destination"])
-            body_dict = {}
             # optional keys
             optional_keys = CHECKTABLE[check_name]["optional"]
-            for opk in optional_keys:
-                if opk in item:
-                    body_dict[opk] = item[opk]
-            body = json.dumps(body_dict)
             # Check the keys
+            destination_type = ["queue","exchange"]
+            assert_usage(item["destination_type"] in destination_type,"Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
@@ -715,7 +714,13 @@ class Management:
                          "'Binding with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
             exist_bindings.append(primary_key_dict)
             # Check the values by API
-            self.http("POST", path, body)
+            path = '/api/%s/%s/e/%s/%s/%s' % (
+            check_name, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("POST", path, json.dumps(body))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
