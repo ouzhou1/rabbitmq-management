@@ -113,19 +113,23 @@ CONFIG_FILE_FIELD = ["vhosts", "queues", "exchanges", "bindings", "permissions",
 CHECKTABLE = {
     "vhosts": {
         'mandatory': ['name'],
-        'optional': ['tracing']
+        'optional': ['tracing'],
+        'primary_keys': ['name']
     },
     "queues": {
         'mandatory': ['name','vhost'],
-        'optional': ['auto_delete','durable','arguments','node']
+        'optional': ['auto_delete','durable','arguments','node'],
+        'primary_keys': ['name','vhost']
     },
     "exchanges": {
         'mandatory': ['name','vhost','type'],
-        'optional': ['auto_delete','durable','arguments','internal']
+        'optional': ['auto_delete','durable','arguments','internal'],
+        'primary_keys': ['name','vhost']
     },
     "bindings":  {
         'mandatory': ['source', 'destination','vhost'],
-        'optional': ['destination_type','routing_key','arguments']
+        'optional': ['destination_type','routing_key','arguments'],
+        'primary_keys': ['vhost','source','destination','routing_key']
     }
 }
 
@@ -619,8 +623,17 @@ class Management:
                 check_method(self,definitions[key],key)
                 self.verbose("OK!")
 
+    def check_repetition(self,check_name,item,exist_items,*pks):
+        primary_key_dict = {}
+        for pk in pks[0]:
+            primary_key_dict[pk] = item[pk]
+        assert_usage(primary_key_dict not in exist_items,
+                     "%s with primary keys: '%s' are repeatedly defined!" % (check_name.capitalize(),primary_key_dict))
+        exist_items.append(primary_key_dict)
+        print exist_items
+
     def check_vhosts(self,check_content,check_name):
-        exist_vhosts = []
+        exist_items = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
@@ -630,10 +643,8 @@ class Management:
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
-            primary_key_dict = {}
-            primary_key_dict["name"] = item["name"]
-            assert_usage(item["name"] not in exist_vhosts,"'Queue with the primary keys: %s' is repeatedly defined!" % primary_key_dict["name"])
-            exist_vhosts.append(item["name"])
+            primary_keys = CHECKTABLE[check_name]["primary_keys"]
+            self.check_repetition(check_name, item, exist_items, primary_keys)
             # Check the values by API
             body = {}
             for opk in optional_keys:
@@ -643,7 +654,7 @@ class Management:
             self.http("PUT", path, json.dumps(body))
 
     def check_queues(self,check_content,check_name):
-        exist_queues = []
+        exist_items = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
@@ -653,11 +664,8 @@ class Management:
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
             # Check the key repetition
-            primary_key_dict = {}
-            primary_key_dict["vhost"] = item["vhost"]
-            primary_key_dict["name"] = item["name"]
-            assert_usage(primary_key_dict not in exist_queues, "'Queue with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
-            exist_queues.append(primary_key_dict)
+            primary_keys = CHECKTABLE[check_name]["primary_keys"]
+            self.check_repetition(check_name, item, exist_items, primary_keys)
             # Check the values by API
             path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
             body = {}
@@ -667,7 +675,7 @@ class Management:
             self.http("PUT", path, json.dumps(body))
 
     def check_exchanges(self,check_content,check_name):
-        exist_exchange = []
+        exist_items = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
@@ -677,12 +685,8 @@ class Management:
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
-            primary_key_dict = {}
-            primary_key_dict["vhost"] = item["vhost"]
-            primary_key_dict["name"] = item["name"]
-            assert_usage(primary_key_dict not in exist_exchange,
-                         "'Exchange with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
-            exist_exchange.append(primary_key_dict)
+            primary_keys = CHECKTABLE[check_name]["primary_keys"]
+            self.check_repetition(check_name, item, exist_items, primary_keys)
             # Check the values by API
             path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
             body = {}
@@ -693,7 +697,7 @@ class Management:
             self.http("PUT", path, json.dumps(body))
 
     def check_bindings(self,check_content,check_name):
-        exist_bindings = []
+        exist_items = []
         for item in check_content:
             # mandatory keys
             mandatory_keys = CHECKTABLE[check_name]["mandatory"]
@@ -705,14 +709,8 @@ class Management:
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
-            primary_key_dict = {}
-            primary_key_dict["vhost"] = item["vhost"]
-            primary_key_dict["source"] = item["source"]
-            primary_key_dict["destination"] = item["destination"]
-            primary_key_dict["routing_key"] = item["routing_key"]
-            assert_usage(primary_key_dict not in exist_bindings,
-                         "'Binding with the primary keys: %s' is repeatedly defined!" % primary_key_dict)
-            exist_bindings.append(primary_key_dict)
+            primary_keys = CHECKTABLE[check_name]["primary_keys"]
+            self.check_repetition(check_name, item, exist_items, primary_keys)
             # Check the values by API
             path = '/api/%s/%s/e/%s/%s/%s' % (
             check_name, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
