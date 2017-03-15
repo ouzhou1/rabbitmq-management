@@ -28,7 +28,6 @@ import os
 import socket
 import ssl
 import traceback
-import time
 
 if sys.version_info[0] == 2:
     from ConfigParser import ConfigParser, NoSectionError
@@ -38,6 +37,7 @@ if sys.version_info[0] == 2:
     def b64(s):
         return base64.b64encode(s)
 else:
+    from configparser import ConfigParser, NoSectionError
     import http.client as httplib
     import urllib.parse as urlparse
     from urllib.parse import quote_plus
@@ -107,31 +107,6 @@ DECLARABLE = {
                    'json':      ['definition', 'priority'],
                    'optional':  {'priority' : 0, 'apply-to': None}}
     }
-
-CONFIG_FILE_FIELD = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users", "rabbit_version"]
-
-CHECKTABLE = {
-    "vhosts": {
-        'mandatory': ['name'],
-        'optional': ['tracing'],
-        'primary_keys': ['name']
-    },
-    "queues": {
-        'mandatory': ['name','vhost'],
-        'optional': ['auto_delete','durable','arguments','node'],
-        'primary_keys': ['name','vhost']
-    },
-    "exchanges": {
-        'mandatory': ['name','vhost','type'],
-        'optional': ['auto_delete','durable','arguments','internal'],
-        'primary_keys': ['name','vhost']
-    },
-    "bindings":  {
-        'mandatory': ['source', 'destination','vhost'],
-        'optional': ['destination_type','routing_key','arguments'],
-        'primary_keys': ['vhost','source','destination','routing_key']
-    }
-}
 
 DELETABLE = {
     'exchange':   {'mandatory': ['name']},
@@ -553,8 +528,8 @@ class Management:
                 usage = config_usage()
             else:
                 assert_usage(False, """help topic must be one of:
-    subcommands
-    config""")
+  subcommands
+  config""")
             print(usage)
         exit(0)
 
@@ -601,124 +576,12 @@ class Management:
         f = open(path, 'r')
         definitions = f.read()
         f.close()
-        assert_usage(definitions is not None,"File is empty")
-        self.configuration_file_validation(definitions)
         uri = "/definitions"
         if self.options.vhost:
             uri += "/%s" % quote_plus(self.options.vhost)
         self.post(uri, definitions)
         self.verbose("Imported definitions for %s from \"%s\""
                      % (self.options.hostname, path))
-
-    def configuration_file_validation(self,dfs):
-        definitions = json.loads(dfs)
-        for key in definitions.keys():
-            assert_usage(len(definitions.keys()) == 7,"Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
-            assert_usage(key in CONFIG_FILE_FIELD,"Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
-            # main fields are generated
-            if key in CHECKTABLE.keys():
-                self.verbose("Starts to check {0}!".format(key))
-                # start to check the fields' format
-                check_method = getattr(Management,"check_%s" % key)
-                check_method(self,definitions[key],key)
-                self.verbose("OK!")
-
-    def check_repetition(self,check_name,item,exist_items,*pks):
-        primary_key_dict = {}
-        for pk in pks[0]:
-            primary_key_dict[pk] = item[pk]
-        assert_usage(primary_key_dict not in exist_items,
-                     "%s with primary keys: '%s' are repeatedly defined!" % (check_name.capitalize(),primary_key_dict))
-        exist_items.append(primary_key_dict)
-        print exist_items
-
-    def check_vhosts(self,check_content,check_name):
-        exist_items = []
-        for item in check_content:
-            # mandatory keys
-            mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            # optional keys
-            optional_keys = CHECKTABLE[check_name]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the key repetition
-            primary_keys = CHECKTABLE[check_name]["primary_keys"]
-            self.check_repetition(check_name, item, exist_items, primary_keys)
-            # Check the values by API
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            path = '/api/%s/%s' % (check_name, item["name"])
-            self.http("PUT", path, json.dumps(body))
-
-    def check_queues(self,check_content,check_name):
-        exist_items = []
-        for item in check_content:
-            # mandatory keys
-            mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            # optional keys
-            optional_keys = CHECKTABLE[check_name]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
-            # Check the key repetition
-            primary_keys = CHECKTABLE[check_name]["primary_keys"]
-            self.check_repetition(check_name, item, exist_items, primary_keys)
-            # Check the values by API
-            path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("PUT", path, json.dumps(body))
-
-    def check_exchanges(self,check_content,check_name):
-        exist_items = []
-        for item in check_content:
-            # mandatory keys
-            mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            # optional keys
-            optional_keys = CHECKTABLE[check_name]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the key repetition
-            primary_keys = CHECKTABLE[check_name]["primary_keys"]
-            self.check_repetition(check_name, item, exist_items, primary_keys)
-            # Check the values by API
-            path = '/api/%s/%s/%s' % (check_name, item["vhost"], item["name"])
-            body = {}
-            body["type"] = item["type"]
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("PUT", path, json.dumps(body))
-
-    def check_bindings(self,check_content,check_name):
-        exist_items = []
-        for item in check_content:
-            # mandatory keys
-            mandatory_keys = CHECKTABLE[check_name]["mandatory"]
-            # optional keys
-            optional_keys = CHECKTABLE[check_name]["optional"]
-            # Check the keys
-            destination_type = ["queue","exchange"]
-            assert_usage(item["destination_type"] in destination_type,"Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the key repetition
-            primary_keys = CHECKTABLE[check_name]["primary_keys"]
-            self.check_repetition(check_name, item, exist_items, primary_keys)
-            # Check the values by API
-            path = '/api/%s/%s/e/%s/%s/%s' % (
-            check_name, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("POST", path, json.dumps(body))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
