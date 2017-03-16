@@ -28,6 +28,7 @@ import os
 import socket
 import ssl
 import traceback
+import time
 
 if sys.version_info[0] == 2:
     from ConfigParser import ConfigParser, NoSectionError
@@ -37,7 +38,6 @@ if sys.version_info[0] == 2:
     def b64(s):
         return base64.b64encode(s)
 else:
-    from configparser import ConfigParser, NoSectionError
     import http.client as httplib
     import urllib.parse as urlparse
     from urllib.parse import quote_plus
@@ -107,6 +107,31 @@ DECLARABLE = {
                    'json':      ['definition', 'priority'],
                    'optional':  {'priority' : 0, 'apply-to': None}}
     }
+
+CONFIG_FILE_FIELD = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users", "rabbit_version"]
+
+CHECKTABLE = {
+    "vhosts": {
+        'mandatory': ['name','archived'],
+        'optional': ['tracing'],
+        'primary_keys': ['name']
+    },
+    "queues": {
+        'mandatory': ['name','vhost','archived'],
+        'optional': ['auto_delete','durable','arguments','node'],
+        'primary_keys': ['name','vhost']
+    },
+    "exchanges": {
+        'mandatory': ['name','vhost','type','archived'],
+        'optional': ['auto_delete','durable','arguments','internal'],
+        'primary_keys': ['name','vhost']
+    },
+    "bindings":  {
+        'mandatory': ['source', 'destination','vhost'],
+        'optional': ['destination_type','routing_key','arguments'],
+        'primary_keys': ['vhost','source','destination','routing_key']
+    }
+}
 
 DELETABLE = {
     'exchange':   {'mandatory': ['name']},
@@ -180,6 +205,7 @@ def subcommands_usage():
     usage += title("Broker Definitions")
     usage += """  export <file>
   import <file>
+  merge <file>
 """
     usage += title("Publishing and Consuming")
     usage += fmt_usage_stanza(EXTRA_VERBS, '')
@@ -512,6 +538,10 @@ class Management:
         assert_usage(len(self.args) == 1, 'Exactly one argument required')
         return self.args[0]
 
+    def get_args(self):
+        assert_usage(len(self.args) != 1, 'More than one argument required')
+        return self.args[0:]
+
     def use_cols(self):
         # Deliberately do not cast to int here; we only care about the
         # default, not explicit setting.
@@ -528,8 +558,8 @@ class Management:
                 usage = config_usage()
             else:
                 assert_usage(False, """help topic must be one of:
-  subcommands
-  config""")
+    subcommands
+    config""")
             print(usage)
         exit(0)
 
@@ -576,12 +606,189 @@ class Management:
         f = open(path, 'r')
         definitions = f.read()
         f.close()
+        assert_usage(definitions is not None,"File is empty")
+        # Update definitions and generate updated configure file
+        definitions = self.configuration_file_validation(definitions)
+        f = open('/home/ouzhou/test111','w')
+        f.write(definitions)
         uri = "/definitions"
         if self.options.vhost:
             uri += "/%s" % quote_plus(self.options.vhost)
         self.post(uri, definitions)
         self.verbose("Imported definitions for %s from \"%s\""
                      % (self.options.hostname, path))
+
+    def configuration_file_validation(self,dfs):
+        # Define archived field clear result
+        dfs_result = ''
+        definitions = json.loads(dfs)
+        for key in definitions.keys():
+            assert_usage(len(definitions.keys()) == 7,"Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
+            assert_usage(key in CONFIG_FILE_FIELD,"Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
+            # Main fields are generated
+            if key in CHECKTABLE.keys():
+                self.verbose("Starts to check {0}!".format(key))
+                # start to check the fields' format
+                check_method = getattr(Management,"check_%s" % key)
+                dfs = check_method(self,key,definitions)
+                self.verbose("{0} checked!\n".format(key))
+                dfs_result = json.dumps(dfs)
+        return dfs_result
+
+    def check_repetition(self,check_field,item,exist_items,*pks):
+        primary_key_dict = {}
+        for pk in pks[0]:
+            primary_key_dict[pk] = item[pk]
+        assert_usage(primary_key_dict not in exist_items,
+                     "%s with primary keys: '%s' are repeatedly defined!" % (check_field.capitalize(),primary_key_dict))
+        exist_items.append(primary_key_dict)
+
+    def clear_mark_component(self,field,dfs):
+        for item in dfs[field]:
+            if item["archived"] == True:
+                # Clear component with 'archived'=True online
+                self.verbose("Archived item found")
+                if field == 'vhosts':
+                    path = '/api/vhosts/%s' % item["name"]
+                else:
+                    path = '/api/%s/%s/%s' % (field,item["vhost"],item["name"])
+                    # When deleting queues or exchanges, remove their bindings
+                    for element in dfs["bindings"]:
+                        if item["vhost"] == element["vhost"] and (item["name"] == element["source"] or item["name"] == element["destination"]):
+                            dfs["bindings"].remove(element)
+                self.http("DELETE",path,'')
+                self.verbose("Deleted item %s for %s"% (item,self.options.hostname))
+                # Clear component with 'archived'=True in configure file
+                dfs[field].remove(item)
+        return dfs
+
+    # dfs refers to definitions
+    def check_vhosts(self,check_field,dfs):
+        # Clear component with 'archived'==True and update the definitions
+        dfs = self.clear_mark_component(check_field,dfs)
+        # Check configure file format
+        for item in dfs[check_field]:
+            # mandatory keys
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            # optional keys
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
+            # Check the values by API
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            path = '/api/%s/%s' % (check_field, item["name"])
+            self.http("PUT", path, json.dumps(body))
+        return dfs
+
+    def check_queues(self,check_field,dfs):
+        exist_items = []
+        # Clear component with 'archived'==True
+        dfs = self.clear_mark_component(check_field,dfs)
+        for item in dfs[check_field]:
+            # mandatory keys
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            # optional keys
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
+            # Check the key repetition
+            primary_keys = CHECKTABLE[check_field]["primary_keys"]
+            self.check_repetition(check_field, item, exist_items, primary_keys)
+            # Check the values by API
+            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
+        return dfs
+
+    def check_exchanges(self,check_field,dfs):
+        exist_items = []
+        # Clear component with 'archived'==True
+        dfs = self.clear_mark_component(check_field,dfs)
+        for item in dfs[check_field]:
+            # mandatory keys
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            # optional keys
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
+            # Check the key repetition
+            primary_keys = CHECKTABLE[check_field]["primary_keys"]
+            self.check_repetition(check_field, item, exist_items, primary_keys)
+            # Check the values by API
+            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
+            body = {}
+            body["type"] = item["type"]
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
+        return dfs
+
+    def check_bindings(self,check_field,dfs):
+        exist_items = []
+        for item in dfs[check_field]:
+            # mandatory keys
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            # optional keys
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            destination_type = ["queue","exchange"]
+            assert_usage(item["destination_type"] in destination_type,"Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
+            # Check the key repetition
+            primary_keys = CHECKTABLE[check_field]["primary_keys"]
+            self.check_repetition(check_field, item, exist_items, primary_keys)
+            # Check the values by API
+            path = '/api/%s/%s/e/%s/%s/%s' % (
+            check_field, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("POST", path, json.dumps(body))
+        return dfs
+
+    def invoke_merge(self):
+        config_files_path = self.get_args()
+        MERGETABLE = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users"]
+        merge_file_dict = {
+            "rabbit_version": "3.6.6",
+            "users": [],
+            "vhosts": [],
+            "permissions": [],
+            "queues": [],
+            "exchanges":[],
+            "bindings": []
+        }
+        # Merge by fields
+        for field in MERGETABLE:
+            for config_file in config_files_path:
+                f = open(config_file, 'r')
+                definitions = f.read()
+                f.close()
+                assert_usage(definitions is not None, "File '%s' is empty" % config_file)
+                merge_file_dict[field] += json.loads(definitions)[field]
+            # Check one merged field
+            if field in CHECKTABLE.keys():
+                check_method = getattr(Management, "check_%s" % field)
+                check_method(self, merge_file_dict[field], field)
+                self.verbose("Field %s of merged file validation is OK!" % (field))
+        merge_file = json.dumps(merge_file_dict)
+        # Check all merged fields
+        self.configuration_file_validation(merge_file)
+        print merge_file
+        self.verbose("Imported merged definitions for %s from \'%s\'"
+                     % (self.options.hostname, config_files_path))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
@@ -905,7 +1112,7 @@ _rabbitmqadmin()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="list show declare delete close purge import export get publish help"
+    opts="list show declare delete close purge import merge export get publish help"
     fargs="--help --host --port --vhost --username --password --format --depth --sort --sort-reverse"
 
     case "${prev}" in
@@ -938,6 +1145,10 @@ _rabbitmqadmin()
             return 0
             ;;
         import)
+            COMPREPLY=( $(compgen -f ${cur}) )
+            return 0
+            ;;
+        merge)
             COMPREPLY=( $(compgen -f ${cur}) )
             return 0
             ;;
