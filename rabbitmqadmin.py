@@ -28,6 +28,7 @@ import os
 import socket
 import ssl
 import traceback
+import time
 
 if sys.version_info[0] == 2:
     from ConfigParser import ConfigParser, NoSectionError
@@ -619,8 +620,167 @@ class Management:
             definitions = self.clear_mark_element(key, definitions)
         # Commit the updated definitions to gitlab()
         f = open(path,'w')
-        f.write(definitions)
+        f.write(json.dumps(definitions, sort_keys=False, indent=2, separators=(',', ': ')))
         # unfinished
+
+    def clear_mark_element(self, field, dfs):
+        for item in dfs[field]:
+            if item["delete"] == True:
+                # Clear element with 'delete'=True online
+                self.verbose("Deleting item found")
+                if field == 'vhosts':
+                    path = '/api/vhosts/%s' % item["name"]
+                # When deleting queues, remove their bindings
+                elif field == 'queues':
+                    path = '/api/%s/%s/%s' % (field, item["vhost"], item["name"])
+                    for element in dfs["bindings"]:
+                        if item["vhost"] == element["vhost"] and (
+                                item["name"] == element["source"] or element["destination"]):
+                            dfs["bindings"].remove(element)
+                # When deleting exchanges, check if there are related bindings
+                elif field == 'exchanges':
+                    path = '/api/%s/%s/%s?if-unused=true' % (field, item["vhost"], item["name"])
+                else:
+                    path = '/api/bindings/%s/e/%s/%s/%s/%s' \
+                           % (item["vhost"], item["source"], item["destination_type"][0], item["destination"],
+                              item["routing_key"])
+                self.http("DELETE", path, '')
+                self.verbose("Deleted item %s for %s" % (item, self.options.hostname))
+                # Clear element with 'delete'=True in configure file
+                dfs[field].remove(item)
+        return dfs
+
+    def invoke_check(self):
+        path = self.get_arg()
+        f = open(path, 'r')
+        definitions = f.read()
+        f.close()
+        assert_usage(definitions is not None, "File is empty")
+        try:
+            definitions = json.loads(definitions)
+        except ValueError:
+            self.verbose("File from '%s' is not json!" % path)
+        self.configuration_file_validation(definitions)
+
+    def configuration_file_validation(self, definitions):
+        # Check main fields
+        for key in definitions.keys():
+            assert_usage(len(definitions.keys()) == 7,
+                         "Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
+            assert_usage(key in CONFIG_FILE_FIELD,
+                         "Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
+        # Check sub fields
+        for key in CHECKTABLE.keys():
+            self.verbose("Starts to check {0}!".format(key))
+            # Start to check the fields' format
+            check_method = getattr(Management, "check_%s" % key)
+            check_method(self, key, definitions)
+            self.verbose("{0} checked!\n".format(key))
+
+    def check_field_repetition(self, check_field, item, exist_items):
+        pk_list = []
+        item_dict = {}
+        # Establish primary keys list
+        for pk in CHECKTABLE[check_field]["primary_keys"]:
+            pk_list.append(item[pk])
+        pk_list.sort()
+        # Use the tuple of the list as item dictionary's pk
+        item_dict[tuple(pk_list)] = item
+        for exist_item in exist_items:
+            if item_dict.keys() == exist_item.keys():
+                assert_usage(exist_item[item_dict.keys()[0]] == item,
+                             "%s '%s' are repeatedly defined and with conflicts!" % (
+                             check_field.capitalize(), item_dict.keys()[0]))
+        exist_items.append(item_dict)
+
+    # dfs refers to definitions
+    def check_vhosts(self, check_field, dfs):
+        # Check configure file format
+        for item in dfs[check_field]:
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check the values by API
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            path = '/api/%s/%s' % (check_field, item["name"])
+            self.http("PUT", path, json.dumps(body))
+
+    def check_queues(self, check_field, dfs):
+        exist_items = []
+        for item in dfs[check_field]:
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys, "Invalid key '%s'" % key)
+            # Check the key repetition
+            self.check_field_repetition(check_field, item, exist_items)
+            # Check the values by API
+            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
+
+    def check_exchanges(self, check_field, dfs):
+        exist_items = []
+        for item in dfs[check_field]:
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check the key repetition
+            self.check_field_repetition(check_field, item, exist_items)
+            # Check the values by API
+            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
+            body = {}
+            body["type"] = item["type"]
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("PUT", path, json.dumps(body))
+
+    def check_bindings(self, check_field, dfs):
+        exist_items = []
+        for item in dfs[check_field]:
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            destination_type = ["queue", "exchange"]
+            assert_usage(item["destination_type"] in destination_type,
+                         "Destination type '%s' in '%s' is invalid!" % (item["destination_type"], item))
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check the key repetition
+            self.check_field_repetition(check_field, item, exist_items)
+            # Create missing queues or exchanges of the bindings(minimize the config file)
+            virtual_create_dict = {'queues': 'destination', 'exchanges': 'source'}
+            for type in virtual_create_dict.keys():
+                url = '/api/%s/%s/%s' % (type, item["vhost"], item[virtual_create_dict[type]])
+                try:
+                    self.http("GET", url, '')
+                except:
+                    body = '{}'
+                    if type == "exchanges":
+                        body = '{"type":"topic","durable":true}'
+                    time.sleep(0.01)
+                    self.verbose("Add %s" % item[virtual_create_dict[type]])
+                    self.http("PUT", url, body)
+            # Check the values by API
+            path = '/api/%s/%s/e/%s/%s/%s' % (
+                check_field, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("POST", path, json.dumps(body))
 
     def invoke_export(self):
         path = self.get_arg()
@@ -640,170 +800,12 @@ class Management:
         definitions = f.read()
         f.close()
         assert_usage(definitions is not None,"File is empty")
-        try:
-            definitions = json.loads(definitions)
-        except ValueError:
-            self.verbose("File from '%s' is not json!" % path)
-        # Update definitions and generate updated configure file
-        definitions = self.configuration_file_validation(definitions)
-        # Commit the updated definitions to gitlab()
-        # f = open('/home/ouzhou/test111','w')
-        # f.write(definitions)
         uri = "/definitions"
         if self.options.vhost:
             uri += "/%s" % quote_plus(self.options.vhost)
         self.post(uri, definitions)
         self.verbose("Imported definitions for %s from \"%s\""
                      % (self.options.hostname, path))
-
-    def configuration_file_validation(self,definitions):
-        # Check main fields
-        for key in definitions.keys():
-            assert_usage(len(definitions.keys()) == 7,
-                         "Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
-            assert_usage(key in CONFIG_FILE_FIELD,
-                         "Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
-        # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
-        for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
-            dfs = self.clear_mark_element(key, definitions)
-        # Check sub fields
-        for key in CHECKTABLE.keys():
-            self.verbose("Starts to check {0}!".format(key))
-            # Start to check the fields' format
-            check_method = getattr(Management,"check_%s" % key)
-            check_method(self,key,definitions)
-            self.verbose("{0} checked!\n".format(key))
-        return json.dumps(dfs)
-
-    def clear_mark_element(self,field,dfs):
-        for item in dfs[field]:
-            if item["delete"] == True:
-                # Clear element with 'delete'=True online
-                self.verbose("Deleting item found")
-                if field == 'vhosts':
-                    path = '/api/vhosts/%s' % item["name"]
-                # When deleting queues, remove their bindings
-                elif field == 'queues':
-                    path = '/api/%s/%s/%s' % (field,item["vhost"],item["name"])
-                    for element in dfs["bindings"]:
-                        if item["vhost"] == element["vhost"] and (item["name"] == element["source"] or element["destination"]):
-                            dfs["bindings"].remove(element)
-                # When deleting exchanges, check if there are related bindings
-                elif field == 'exchanges':
-                    path = '/api/%s/%s/%s?if-unused=true' % (field, item["vhost"], item["name"])
-                else:
-                    path = '/api/bindings/%s/e/%s/%s/%s/%s' \
-                           % (item["vhost"],item["source"],item["destination_type"][0],item["destination"],item["routing_key"])
-                self.http("DELETE",path,'')
-                self.verbose("Deleted item %s for %s"% (item,self.options.hostname))
-                # Clear element with 'delete'=True in configure file
-                dfs[field].remove(item)
-        return dfs
-
-    def check_field_repetition(self,check_field,item,exist_items):
-        pk_list = []
-        item_dict = {}
-        for pk in CHECKTABLE[check_field]["primary_keys"]:
-            pk_list.append(item[pk])
-        pk_list.sort()
-        item_dict[tuple(pk_list)] = item
-        for exist_item in exist_items:
-            if item_dict.keys() == exist_item.keys():
-                assert_usage(exist_item[item_dict.keys()[0]] == item,
-                         "%s '%s' are repeatedly defined and with conflicts!" % (check_field.capitalize(),item_dict.keys()[0]))
-        exist_items.append(item_dict)
-
-    # dfs refers to definitions
-    def check_vhosts(self,check_field,dfs):
-        # Check configure file format
-        for item in dfs[check_field]:
-            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the values by API
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            path = '/api/%s/%s' % (check_field, item["name"])
-            self.http("PUT", path, json.dumps(body))
-        return dfs
-
-    def check_queues(self,check_field,dfs):
-        exist_items = []
-        for item in dfs[check_field]:
-            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
-            # Check the key repetition
-            self.check_field_repetition(check_field, item, exist_items)
-            # Check the values by API
-            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("PUT", path, json.dumps(body))
-        return dfs
-
-    def check_exchanges(self,check_field,dfs):
-        exist_items = []
-        for item in dfs[check_field]:
-            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the key repetition
-            self.check_field_repetition(check_field, item, exist_items)
-            # Check the values by API
-            path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
-            body = {}
-            body["type"] = item["type"]
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("PUT", path, json.dumps(body))
-        return dfs
-
-    def check_bindings(self,check_field,dfs):
-        exist_items = []
-        for item in dfs[check_field]:
-            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
-            destination_type = ["queue","exchange"]
-            assert_usage(item["destination_type"] in destination_type,
-                         "Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
-            for key in item:
-                assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
-            # Check the key repetition
-            self.check_field_repetition(check_field, item, exist_items)
-            # Create missing queues or exchanges of the bindings(minimize the config file)
-            virtual_create_dict = {'queues':'destination','exchanges':'source'}
-            for type in virtual_create_dict.keys():
-                url = '/api/%s/%s/%s' % (type,item["vhost"], item[virtual_create_dict[type]])
-                try:
-                    self.http("GET",url,'')
-                except:
-                    body = ''
-                    if type == "exchanges":
-                        body = '{"type":"topic","durable":true}'
-                    self.verbose("Add %s" % item[virtual_create_dict[type]])
-                    self.http("PUT",url,body)
-            # Check the values by API
-            path = '/api/%s/%s/e/%s/%s/%s' % (
-            check_field, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
-            body = {}
-            for opk in optional_keys:
-                if opk in item:
-                    body[opk] = item[opk]
-            self.http("POST", path, json.dumps(body))
-        return dfs
 
     def invoke_merge(self):
         merge_args = self.get_args()
@@ -814,7 +816,7 @@ class Management:
             "vhosts": [],
             "permissions": [],
             "queues": [],
-            "exchanges":[],
+            "exchanges": [],
             "bindings": []
         }
         # Merge by fields
