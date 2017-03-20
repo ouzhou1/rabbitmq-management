@@ -7,8 +7,8 @@ variables:
 
 stages:
 - update-test
-- check-test
 - import-test
+- check-test
 
 import-test:
   stage: import-test
@@ -35,6 +35,6 @@ check-test:
   services:
     - rabbitmq:3.6.6-management
   script:
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq check /builds/ouzhou/rabbitmq-import-check/test.config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" check /builds/ouzhou/rabbitmq-import-check/test.config
   tags:
     - ci
