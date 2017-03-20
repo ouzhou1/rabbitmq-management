@@ -6,16 +6,35 @@ variables:
   PASSWORD: admin123
 
 stages:
-- test
+-import-test
+-check-test
+-update-test
 
-check_import:
-  stage: test
+import-test:
+  stage: import-test
   services:
     - rabbitmq:3.6.6-management
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /builds/ouzhou/rabbitmq-import-check/test.config
+  tags:
+    - ci
 
+update-test:
+  stage: update-test
+  services:
+    - rabbitmq:3.6.6-management
+  script:
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq update /builds/ouzhou/rabbitmq-import-check/test.config
+  tags:
+    - ci
+
+check-test:
+  stage: check-test
+  services:
+    - rabbitmq:3.6.6-management
+  script:
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq check /builds/ouzhou/rabbitmq-import-check/test.config
   tags:
     - ci

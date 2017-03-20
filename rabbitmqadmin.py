@@ -217,6 +217,7 @@ def subcommands_usage():
   import <file>
   merge <file>
   update <file>
+  check <file>
 """
     usage += title("Publishing and Consuming")
     usage += fmt_usage_stanza(EXTRA_VERBS, '')
@@ -1180,7 +1181,7 @@ _rabbitmqadmin()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="list show declare delete close purge update import merge export get publish help"
+    opts="list show declare delete close purge update check import merge export get publish help"
     fargs="--help --host --port --vhost --username --password --format --depth --sort --sort-reverse"
 
     case "${prev}" in
@@ -1209,6 +1210,10 @@ _rabbitmqadmin()
             return 0
             ;;
         update)
+            COMPREPLY=( $(compgen -f ${cur}) )
+            return 0
+            ;;
+        check)
             COMPREPLY=( $(compgen -f ${cur}) )
             return 0
             ;;
