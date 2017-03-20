@@ -6,9 +6,9 @@ variables:
   PASSWORD: admin123
 
 stages:
-- import-test
-- check-test
 - update-test
+- check-test
+- import-test
 
 import-test:
   stage: import-test
