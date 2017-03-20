@@ -10,7 +10,8 @@
    ],
    "vhosts":[
       {
-         "name":"fincloud"
+         "name":"fincloud",
+	 "archived":false
       }
    ],
    "permissions":[
@@ -33,6 +34,7 @@
       {
          "name":"fincloud.queue.notification.email",
          "vhost":"fincloud",
+	 "archived":false,
          "durable":true,
          "auto_delete":false,
          "arguments":{
@@ -42,6 +44,7 @@
       {
          "name":"fincloud.queue.notification.sms",
          "vhost":"fincloud",
+	 "archived":false,
          "durable":true,
          "auto_delete":false,
          "arguments":{
@@ -53,6 +56,7 @@
       {
          "name":"fincloud.exchange.notification",
          "vhost":"fincloud",
+	 "archived":false,
          "type":"topic",
          "durable":true,
          "auto_delete":false,

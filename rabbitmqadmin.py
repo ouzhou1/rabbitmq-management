@@ -28,7 +28,6 @@ import os
 import socket
 import ssl
 import traceback
-import time
 
 if sys.version_info[0] == 2:
     from ConfigParser import ConfigParser, NoSectionError
@@ -45,7 +44,17 @@ else:
         return base64.b64encode(s.encode('utf-8')).decode('utf-8')
 
 VERSION = '3.6.6'
-
+private_token = 'uXWsJV-jEmJaprYcd2KB'
+GITLABTABLE = {'private_token': 'uXWsJV-jEmJaprYcd2KB',
+               'config': {'toms': 'http://git.jiayincloud.com/fincloud/toms/raw/dev/rabbitmq.config?private_token='+private_token,
+                          'apollo': 'http://git.jiayincloud.com/fincloud/apollo/raw/dev/rabbitmq.config?private_token='+private_token,
+                          'demeter': 'http://git.jiayincloud.com/fincloud/demeter/raw/dev/rabbitmq.config?private_token='+private_token,
+                          'metis': 'http://git.jiayincloud.com/fincloud/metis/raw/dev/rabbitmq.config?private_token='+private_token,
+                          'janus': 'http://git.jiayincloud.com/fincloud/janus/raw/dev/rabbitmq.config?private_token='+private_token,
+                          'rhea': 'http://git.jiayincloud.com/fincloud/rhea/raw/dev/rabbitmq.config?private_token='+private_token
+                          },
+               'commit': ''
+}
 LISTABLE = {'connections': {'vhost': False, 'cols': ['name','user','channels']},
             'channels':    {'vhost': False, 'cols': ['name', 'user']},
             'consumers':   {'vhost': True},
@@ -112,22 +121,22 @@ CONFIG_FILE_FIELD = ["vhosts", "queues", "exchanges", "bindings", "permissions",
 
 CHECKTABLE = {
     "vhosts": {
-        'mandatory': ['name','archived'],
+        'mandatory': ['name','delete'],
         'optional': ['tracing'],
         'primary_keys': ['name']
     },
     "queues": {
-        'mandatory': ['name','vhost','archived'],
+        'mandatory': ['name','vhost','delete'],
         'optional': ['auto_delete','durable','arguments','node'],
         'primary_keys': ['name','vhost']
     },
     "exchanges": {
-        'mandatory': ['name','vhost','type','archived'],
+        'mandatory': ['name','vhost','type','delete'],
         'optional': ['auto_delete','durable','arguments','internal'],
         'primary_keys': ['name','vhost']
     },
     "bindings":  {
-        'mandatory': ['source', 'destination','vhost'],
+        'mandatory': ['source', 'destination','vhost','delete'],
         'optional': ['destination_type','routing_key','arguments'],
         'primary_keys': ['vhost','source','destination','routing_key']
     }
@@ -206,6 +215,7 @@ def subcommands_usage():
     usage += """  export <file>
   import <file>
   merge <file>
+  update <file>
 """
     usage += title("Publishing and Consuming")
     usage += fmt_usage_stanza(EXTRA_VERBS, '')
@@ -530,6 +540,11 @@ class Management:
                             % (resp.status, resp.reason, path, resp.read()))
         return resp.read().decode('utf-8')
 
+    def git_http(self,method,url,body):
+        conn = httplib.HTTPConnection('git.jiayincloud.com',80)
+        conn.request(method, url, body)
+        return conn.getresponse().read().decode('utf-8')
+
     def verbose(self, string):
         if self.options.verbose:
             output(string)
@@ -539,7 +554,7 @@ class Management:
         return self.args[0]
 
     def get_args(self):
-        assert_usage(len(self.args) != 1, 'More than one argument required')
+        assert_usage(len(self.args) != 1, 'None or more than one argument required')
         return self.args[0:]
 
     def use_cols(self):
@@ -589,6 +604,24 @@ class Management:
         else:
             format_list(result, [], {}, self.options)
 
+    def invoke_update(self):
+        path = self.get_arg()
+        f = open(path, 'r')
+        definitions = f.read()
+        f.close()
+        assert_usage(definitions is not None, "File is empty")
+        try:
+            definitions = json.loads(definitions)
+        except ValueError:
+            self.verbose("File from '%s' is not json!" % path)
+        # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
+        for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
+            definitions = self.clear_mark_element(key, definitions)
+        # Commit the updated definitions to gitlab()
+        f = open(path,'w')
+        f.write(definitions)
+        # unfinished
+
     def invoke_export(self):
         path = self.get_arg()
         uri = "/definitions"
@@ -607,10 +640,15 @@ class Management:
         definitions = f.read()
         f.close()
         assert_usage(definitions is not None,"File is empty")
+        try:
+            definitions = json.loads(definitions)
+        except ValueError:
+            self.verbose("File from '%s' is not json!" % path)
         # Update definitions and generate updated configure file
         definitions = self.configuration_file_validation(definitions)
-        f = open('/home/ouzhou/test111','w')
-        f.write(definitions)
+        # Commit the updated definitions to gitlab()
+        # f = open('/home/ouzhou/test111','w')
+        # f.write(definitions)
         uri = "/definitions"
         if self.options.vhost:
             uri += "/%s" % quote_plus(self.options.vhost)
@@ -618,59 +656,68 @@ class Management:
         self.verbose("Imported definitions for %s from \"%s\""
                      % (self.options.hostname, path))
 
-    def configuration_file_validation(self,dfs):
-        # Define archived field clear result
-        dfs_result = ''
-        definitions = json.loads(dfs)
+    def configuration_file_validation(self,definitions):
+        # Check main fields
         for key in definitions.keys():
-            assert_usage(len(definitions.keys()) == 7,"Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
-            assert_usage(key in CONFIG_FILE_FIELD,"Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
-            # Main fields are generated
-            if key in CHECKTABLE.keys():
-                self.verbose("Starts to check {0}!".format(key))
-                # start to check the fields' format
-                check_method = getattr(Management,"check_%s" % key)
-                dfs = check_method(self,key,definitions)
-                self.verbose("{0} checked!\n".format(key))
-                dfs_result = json.dumps(dfs)
-        return dfs_result
+            assert_usage(len(definitions.keys()) == 7,
+                         "Missing fields from 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version'!")
+            assert_usage(key in CONFIG_FILE_FIELD,
+                         "Wrong field %s! 'vhosts','queues','exchanges','bindings','permissions','users','rabbit_version' needed" % key)
+        # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
+        for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
+            dfs = self.clear_mark_element(key, definitions)
+        # Check sub fields
+        for key in CHECKTABLE.keys():
+            self.verbose("Starts to check {0}!".format(key))
+            # Start to check the fields' format
+            check_method = getattr(Management,"check_%s" % key)
+            check_method(self,key,definitions)
+            self.verbose("{0} checked!\n".format(key))
+        return json.dumps(dfs)
 
-    def check_repetition(self,check_field,item,exist_items,*pks):
-        primary_key_dict = {}
-        for pk in pks[0]:
-            primary_key_dict[pk] = item[pk]
-        assert_usage(primary_key_dict not in exist_items,
-                     "%s with primary keys: '%s' are repeatedly defined!" % (check_field.capitalize(),primary_key_dict))
-        exist_items.append(primary_key_dict)
-
-    def clear_mark_component(self,field,dfs):
+    def clear_mark_element(self,field,dfs):
         for item in dfs[field]:
-            if item["archived"] == True:
-                # Clear component with 'archived'=True online
-                self.verbose("Archived item found")
+            if item["delete"] == True:
+                # Clear element with 'delete'=True online
+                self.verbose("Deleting item found")
                 if field == 'vhosts':
                     path = '/api/vhosts/%s' % item["name"]
-                else:
+                # When deleting queues, remove their bindings
+                elif field == 'queues':
                     path = '/api/%s/%s/%s' % (field,item["vhost"],item["name"])
-                    # When deleting queues or exchanges, remove their bindings
                     for element in dfs["bindings"]:
-                        if item["vhost"] == element["vhost"] and (item["name"] == element["source"] or item["name"] == element["destination"]):
+                        if item["vhost"] == element["vhost"] and (item["name"] == element["source"] or element["destination"]):
                             dfs["bindings"].remove(element)
+                # When deleting exchanges, check if there are related bindings
+                elif field == 'exchanges':
+                    path = '/api/%s/%s/%s?if-unused=true' % (field, item["vhost"], item["name"])
+                else:
+                    path = '/api/bindings/%s/e/%s/%s/%s/%s' \
+                           % (item["vhost"],item["source"],item["destination_type"][0],item["destination"],item["routing_key"])
                 self.http("DELETE",path,'')
                 self.verbose("Deleted item %s for %s"% (item,self.options.hostname))
-                # Clear component with 'archived'=True in configure file
+                # Clear element with 'delete'=True in configure file
                 dfs[field].remove(item)
         return dfs
 
+    def check_field_repetition(self,check_field,item,exist_items):
+        pk_list = []
+        item_dict = {}
+        for pk in CHECKTABLE[check_field]["primary_keys"]:
+            pk_list.append(item[pk])
+        pk_list.sort()
+        item_dict[tuple(pk_list)] = item
+        for exist_item in exist_items:
+            if item_dict.keys() == exist_item.keys():
+                assert_usage(exist_item[item_dict.keys()[0]] == item,
+                         "%s '%s' are repeatedly defined and with conflicts!" % (check_field.capitalize(),item_dict.keys()[0]))
+        exist_items.append(item_dict)
+
     # dfs refers to definitions
     def check_vhosts(self,check_field,dfs):
-        # Clear component with 'archived'==True and update the definitions
-        dfs = self.clear_mark_component(check_field,dfs)
         # Check configure file format
         for item in dfs[check_field]:
-            # mandatory keys
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            # optional keys
             optional_keys = CHECKTABLE[check_field]["optional"]
             # Check the keys
             for key in item:
@@ -686,19 +733,14 @@ class Management:
 
     def check_queues(self,check_field,dfs):
         exist_items = []
-        # Clear component with 'archived'==True
-        dfs = self.clear_mark_component(check_field,dfs)
         for item in dfs[check_field]:
-            # mandatory keys
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            # optional keys
             optional_keys = CHECKTABLE[check_field]["optional"]
             # Check the keys
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid key '%s'" % key)
             # Check the key repetition
-            primary_keys = CHECKTABLE[check_field]["primary_keys"]
-            self.check_repetition(check_field, item, exist_items, primary_keys)
+            self.check_field_repetition(check_field, item, exist_items)
             # Check the values by API
             path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
             body = {}
@@ -710,19 +752,14 @@ class Management:
 
     def check_exchanges(self,check_field,dfs):
         exist_items = []
-        # Clear component with 'archived'==True
-        dfs = self.clear_mark_component(check_field,dfs)
         for item in dfs[check_field]:
-            # mandatory keys
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            # optional keys
             optional_keys = CHECKTABLE[check_field]["optional"]
             # Check the keys
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
-            primary_keys = CHECKTABLE[check_field]["primary_keys"]
-            self.check_repetition(check_field, item, exist_items, primary_keys)
+            self.check_field_repetition(check_field, item, exist_items)
             # Check the values by API
             path = '/api/%s/%s/%s' % (check_field, item["vhost"], item["name"])
             body = {}
@@ -736,18 +773,28 @@ class Management:
     def check_bindings(self,check_field,dfs):
         exist_items = []
         for item in dfs[check_field]:
-            # mandatory keys
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
-            # optional keys
             optional_keys = CHECKTABLE[check_field]["optional"]
             # Check the keys
             destination_type = ["queue","exchange"]
-            assert_usage(item["destination_type"] in destination_type,"Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
+            assert_usage(item["destination_type"] in destination_type,
+                         "Destination type '%s' in '%s' is invalid!" % (item["destination_type"],item))
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys,"Invalid field '%s'" % key)
             # Check the key repetition
-            primary_keys = CHECKTABLE[check_field]["primary_keys"]
-            self.check_repetition(check_field, item, exist_items, primary_keys)
+            self.check_field_repetition(check_field, item, exist_items)
+            # Create missing queues or exchanges of the bindings(minimize the config file)
+            virtual_create_dict = {'queues':'destination','exchanges':'source'}
+            for type in virtual_create_dict.keys():
+                url = '/api/%s/%s/%s' % (type,item["vhost"], item[virtual_create_dict[type]])
+                try:
+                    self.http("GET",url,'')
+                except:
+                    body = ''
+                    if type == "exchanges":
+                        body = '{"type":"topic","durable":true}'
+                    self.verbose("Add %s" % item[virtual_create_dict[type]])
+                    self.http("PUT",url,body)
             # Check the values by API
             path = '/api/%s/%s/e/%s/%s/%s' % (
             check_field, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
@@ -759,7 +806,7 @@ class Management:
         return dfs
 
     def invoke_merge(self):
-        config_files_path = self.get_args()
+        merge_args = self.get_args()
         MERGETABLE = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users"]
         merge_file_dict = {
             "rabbit_version": "3.6.6",
@@ -772,23 +819,42 @@ class Management:
         }
         # Merge by fields
         for field in MERGETABLE:
-            for config_file in config_files_path:
-                f = open(config_file, 'r')
-                definitions = f.read()
-                f.close()
-                assert_usage(definitions is not None, "File '%s' is empty" % config_file)
-                merge_file_dict[field] += json.loads(definitions)[field]
-            # Check one merged field
-            if field in CHECKTABLE.keys():
-                check_method = getattr(Management, "check_%s" % field)
-                check_method(self, merge_file_dict[field], field)
-                self.verbose("Field %s of merged file validation is OK!" % (field))
+            if len(merge_args) > 1:
+                for config_file in merge_args:
+                    f = open(config_file, 'r')
+                    definitions = f.read()
+                    f.close()
+                    assert_usage(definitions is not None, "File '%s' is empty" % config_file)
+                    try:
+                        merge_file_dict[field] += json.loads(definitions)[field]
+                    except ValueError:
+                        self.verbose("File from '%s' is not json!" % config_file)
+                        exit(1)
+                # Check one merged field
+                if field in CHECKTABLE.keys():
+                    check_method = getattr(Management, "check_%s" % field)
+                    self.verbose("Merge check %s" % field)
+                    check_method(self, field, merge_file_dict)
+                    self.verbose("Merged file validation of field '%s' is OK!\n" % field)
+            else:
+                for url in GITLABTABLE['config'].values():
+                    definitions = self.git_http("GET",url,'')
+                    try:
+                        merge_file_dict[field] += json.loads(definitions)[field]
+                    except ValueError:
+                        self.verbose("File from '%s' is not json!" % url)
+                        exit(1)
+                # Check one merged field
+                if field in CHECKTABLE.keys():
+                    check_method = getattr(Management, "check_%s" % field)
+                    self.verbose("Merge check %s" % field)
+                    check_method(self,field,merge_file_dict)
+                    self.verbose("Merged file validation of field '%s' is OK!\n" % field)
         merge_file = json.dumps(merge_file_dict)
         # Check all merged fields
         self.configuration_file_validation(merge_file)
-        print merge_file
         self.verbose("Imported merged definitions for %s from \'%s\'"
-                     % (self.options.hostname, config_files_path))
+                     % (self.options.hostname, merge_args))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
@@ -1112,7 +1178,7 @@ _rabbitmqadmin()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="list show declare delete close purge import merge export get publish help"
+    opts="list show declare delete close purge update import merge export get publish help"
     fargs="--help --host --port --vhost --username --password --format --depth --sort --sort-reverse"
 
     case "${prev}" in
@@ -1138,6 +1204,10 @@ _rabbitmqadmin()
             ;;
         purge)
             COMPREPLY=( $(compgen -W '""" + " ".join(PURGABLE.keys()) + """' -- ${cur}) )
+            return 0
+            ;;
+        update)
+            COMPREPLY=( $(compgen -f ${cur}) )
             return 0
             ;;
         export)
