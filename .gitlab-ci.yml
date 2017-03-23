@@ -16,7 +16,7 @@ update-test:
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 172.17.0.4 -u update /builds/ouzhou/rabbitmq-import-check/test.config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 172.17.0.4 update /builds/ouzhou/rabbitmq-import-check/test.config
   only:
     - dev
     - master
