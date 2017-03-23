@@ -17,6 +17,9 @@ update-test:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq update /builds/ouzhou/rabbitmq-import-check/test.config
+  only:
+    - dev
+    - master
   tags:
     - ci
 
@@ -28,5 +31,8 @@ check-test:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" check /builds/ouzhou/rabbitmq-import-check/test.config
+  only:
+    - dev
+    - master
   tags:
     - ci
