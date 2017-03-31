@@ -48,7 +48,7 @@ VERSION = '3.6.6'
 delete_definition_store_path = ""
 local_delete_definition_store_path = "/home/rabbitmq-delete-definition"
 private_token = 'uXWsJV-jEmJaprYcd2KB'
-GITLABTABLE = {'private_token': 'uXWsJV-jEmJaprYcd2KB',
+GITLABTABLE = {
                'config': {'toms': 'http://git.jiayincloud.com/fincloud/toms/raw/dev/rabbitmq.config?private_token='+private_token,
                           'apollo': 'http://git.jiayincloud.com/fincloud/apollo/raw/dev/rabbitmq.config?private_token='+private_token,
                           'demeter': 'http://git.jiayincloud.com/fincloud/demeter/raw/dev/rabbitmq.config?private_token='+private_token,
@@ -937,7 +937,7 @@ class Management:
         content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
         # Query current project ID
         url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-1]
-        header = {"PRIVATE-TOKEN": "%s"} % GITLABTABLE['private_token']
+        header = {"PRIVATE-TOKEN": private_token} 
         project_id = json.loads(self.git_http("GET", url, "", header))[0]['id']
         # Commit the updated definitions
         url = "/api/v3/projects/%s/repository/files" % project_id
