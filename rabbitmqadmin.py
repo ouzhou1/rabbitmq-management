@@ -658,9 +658,12 @@ class Management:
         for item in dfs[check_field]:
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
             optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
+            # Check the keys' typo
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check mandatory keys
+            for mk in mandatory_keys:
+                assert_usage(mk in item.keys(), "Missing mandatory key '%s'!" % mk)
             # Check the values by API
             body = {}
             for opk in optional_keys:
@@ -674,9 +677,12 @@ class Management:
         for item in dfs[check_field]:
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
             optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
+            # Check the keys' typo
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys, "Invalid key '%s'" % key)
+            # Check mandatory keys
+            for mk in mandatory_keys:
+                assert_usage(mk in item.keys(), "Missing mandatory key '%s'!" % mk)
             # Check the key repetition
             self.check_field_repetition(check_field, item, exist_items)
             # Check the values by API
@@ -692,9 +698,12 @@ class Management:
         for item in dfs[check_field]:
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
             optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
+            # Check the keys' typo
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check mandatory keys
+            for mk in mandatory_keys:
+                assert_usage(mk in item.keys(), "Missing mandatory key '%s'!" % mk)
             # Check the key repetition
             self.check_field_repetition(check_field, item, exist_items)
             # Check the values by API
@@ -711,12 +720,15 @@ class Management:
         for item in dfs[check_field]:
             mandatory_keys = CHECKTABLE[check_field]["mandatory"]
             optional_keys = CHECKTABLE[check_field]["optional"]
-            # Check the keys
+            # Check the keys' typo
             destination_type = ["queue", "exchange"]
             assert_usage(item["destination_type"] in destination_type,
                          "Destination type '%s' in '%s' is invalid!" % (item["destination_type"], item))
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check mandatory keys
+            for mk in mandatory_keys:
+                assert_usage(mk in item.keys(), "Missing mandatory key '%s'!" % mk)
             # Check the key repetition
             self.check_field_repetition(check_field, item, exist_items)
             # Create missing queues or exchanges of the bindings(minimize the config file)
@@ -752,6 +764,9 @@ class Management:
                          "Destination type '%s' in '%s' is invalid!" % (item["destination_type"], item))
             for key in item:
                 assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check mandatory keys
+            for mk in mandatory_keys:
+                assert_usage(mk in item.keys(), "Missing mandatory key '%s'!" % mk)
             # Check the key repetition
             self.check_field_repetition(check_field, item, exist_items)
             # Check the values by API
@@ -789,7 +804,7 @@ class Management:
                 f = open(config_file,'w')
                 content = json.dumps(updated_definitions, sort_keys=False, indent=3, separators=(',', ': '))
                 f.write(content)
-            f = open("/home/rabbitmq-delete-definition", "w")
+            f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
             content = json.dumps(delete_definition, sort_keys=False, indent=3, separators=(',', ': '))
             f.write(content)
         # Merge by fields
@@ -811,9 +826,9 @@ class Management:
             # Merge default projects' configs
             else:
                 for url in GITLABTABLE['config'].values():
-                    definitions = self.git_http("GET", url, '', '')
+                    definitions = self.git_http("GET", url, '', {})
                     assert_usage(definitions is not None, "File '%s' is empty" % url)
-                    merge_file_dict[field] += definitions[field]
+                    merge_file_dict[field] += json.loads(definitions)[field]
                 # Check single merged field
                 if field in CHECKTABLE.keys():
                     check_method = getattr(Management, "check_%s" % field)
@@ -821,11 +836,12 @@ class Management:
                     check_method(self, field, merge_file_dict)
         # Clear marked elements
         merge_file_dict, delete_definition = self.update_file(json.dumps(merge_file_dict), delete_definition, '')
-        f = open("/home/rabbitmq-delete-definition", "w")
+        f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
         f.write(json.dumps(delete_definition))
         # Check all merged fields
         self.check_merged_bindings("bindings", merge_file_dict)
-        f = open("/home/rabbitmq-merged-definition", "w")
+        # Store merged definitions
+        f = open("/home/ouzhou/rabbitmq-merged-definition", "w")
         f.write(json.dumps(merge_file_dict))
         self.verbose("Merged definitions for %s from \'%s\'"
                      % (self.options.hostname, merge_args))
