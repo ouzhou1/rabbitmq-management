@@ -935,7 +935,11 @@ class Management:
         f = open(path, 'r')
         definitions = f.read()
         content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
-        url = "/api/v3/projects/273/repository/files"
+        # Query current project ID
+        url = "/api/v3/projects/search/%s" % sys.path.split("/")[-2]
+        project_id = self.git_http("GET", url, "", {})
+        # Commit the updated definitions
+        url = "/api/v3/projects/%s/repository/files" % project_id
         headers = {
             'Content-type': "application/x-www-form-urlencoded",
             'private-token': "sCp-dbLowHzo_m6rgMzz",
