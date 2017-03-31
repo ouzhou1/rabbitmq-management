@@ -937,13 +937,13 @@ class Management:
         content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
         # Query current project ID
         url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-1]
-        header = {"PRIVATE-TOKEN": private_token} 
+        header = {"PRIVATE-TOKEN": private_token}
         project_id = json.loads(self.git_http("GET", url, "", header))[0]['id']
         # Commit the updated definitions
         url = "/api/v3/projects/%s/repository/files" % project_id
         headers = {
             'Content-type': "application/x-www-form-urlencoded",
-            'private-token': "uXWsJV-jEmJaprYcd2KB",
+            'private-token': private_token,
             'Accept': "text/plain"
         }
         data = {}
