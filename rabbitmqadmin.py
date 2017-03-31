@@ -946,10 +946,10 @@ class Management:
             'Accept': "text/plain"
         }
         data = {}
-        data["file_path"] = 'test.config'
+        data["file_path"] = 'rabbitmq.config'
         data["content"] = content
         data["commit_message"] = 'update rabbitmq.config by marks'
-        data["branch_name"] = 'dev'
+        data["branch_name"] = 'master'
         message = self.git_http("PUT", url, urllib.urlencode(data), headers)
         self.verbose("File %s at branch %s has been updated" % (
         json.loads(message)["file_path"], json.loads(message)["branch_name"]))
