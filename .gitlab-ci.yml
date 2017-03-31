@@ -27,8 +27,8 @@ deploy:
   stage: deploy
   script:
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 import /home/rabbitmq-merged-definition
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 update /home/rabbitmq-delete-definition
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest import /home/rabbitmq-merged-definition
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest update /home/rabbitmq-delete-definition
   only:
     - dev
     - master
