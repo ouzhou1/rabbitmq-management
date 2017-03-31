@@ -942,7 +942,7 @@ class Management:
         url = "/api/v3/projects/%s/repository/files" % project_id
         headers = {
             'Content-type': "application/x-www-form-urlencoded",
-            'private-token': "sCp-dbLowHzo_m6rgMzz",
+            'private-token': "uXWsJV-jEmJaprYcd2KB",
             'Accept': "text/plain"
         }
         data = {}
