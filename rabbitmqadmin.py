@@ -934,7 +934,6 @@ class Management:
         path = self.get_arg()
         f = open(path, 'r')
         definitions = f.read()
-        content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
         # Query current project ID
         url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-1]
         header = {"PRIVATE-TOKEN": private_token}
@@ -948,8 +947,8 @@ class Management:
         }
         data = {}
         data["file_path"] = 'rabbitmq.config'
-        data["content"] = content
-        data["commit_message"] = 'update rabbitmq.config by marks'
+        data["content"] = definitions
+        data["commit_message"] = 'update rabbitmq.config by marks [ci skip]'
         data["branch_name"] = 'master'
         conn = httplib.HTTPConnection('git.jiayincloud.com', 80)
         conn.request("PUT", url, urllib.urlencode(data), headers)
