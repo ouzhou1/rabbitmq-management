@@ -54,8 +54,8 @@ GITLABTABLE = {'private_token': 'uXWsJV-jEmJaprYcd2KB',
                           'janus': 'http://git.jiayincloud.com/fincloud/janus/raw/dev/rabbitmq.config?private_token='+private_token,
                           'rhea': 'http://git.jiayincloud.com/fincloud/rhea/raw/dev/rabbitmq.config?private_token='+private_token
                           },
-               'commit': ''
-}
+               'commit': ''}
+
 LISTABLE = {'connections': {'vhost': False, 'cols': ['name','user','channels']},
             'channels':    {'vhost': False, 'cols': ['name', 'user']},
             'consumers':   {'vhost': True},
@@ -218,6 +218,7 @@ def subcommands_usage():
   merge <file>
   update <file>
   check <file>
+  commit <file>
 """
     usage += title("Publishing and Consuming")
     usage += fmt_usage_stanza(EXTRA_VERBS, '')
@@ -542,9 +543,9 @@ class Management:
                             % (resp.status, resp.reason, path, resp.read()))
         return resp.read().decode('utf-8')
 
-    def git_http(self,method,url,body):
-        conn = httplib.HTTPConnection('git.jiayincloud.com',80)
-        conn.request(method, url, body)
+    def git_http(self, method, url, body, headers):
+        conn = httplib.HTTPConnection('git.jiayincloud.com', 80)
+        conn.request(method, url, body, headers)
         return conn.getresponse().read().decode('utf-8')
 
     def verbose(self, string):
@@ -605,51 +606,6 @@ class Management:
             format_list(result, columns, {}, self.options)
         else:
             format_list(result, [], {}, self.options)
-
-    def invoke_update(self):
-        path = self.get_arg()
-        f = open(path, 'r')
-        definitions = f.read()
-        f.close()
-        assert_usage(definitions is not None, "File is empty")
-        try:
-            definitions = json.loads(definitions)
-        except ValueError:
-            self.verbose("File from '%s' is not json!" % path)
-        # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
-        for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
-            definitions = self.clear_mark_element(key, definitions)
-        # Commit the updated definitions to gitlab()
-        f = open(path,'w')
-        f.write(json.dumps(definitions, sort_keys=False, indent=2, separators=(',', ': ')))
-        # unfinished
-
-    def clear_mark_element(self, field, dfs):
-        for item in dfs[field]:
-            if item["delete"] == True:
-                # Clear element with 'delete'=True online
-                self.verbose("Deleting item found")
-                if field == 'vhosts':
-                    path = '/api/vhosts/%s' % item["name"]
-                # When deleting queues, remove their bindings
-                elif field == 'queues':
-                    path = '/api/%s/%s/%s' % (field, item["vhost"], item["name"])
-                    for element in dfs["bindings"]:
-                        if item["vhost"] == element["vhost"] and (
-                                item["name"] == element["source"] or element["destination"]):
-                            dfs["bindings"].remove(element)
-                # When deleting exchanges, check if there are related bindings
-                elif field == 'exchanges':
-                    path = '/api/%s/%s/%s?if-unused=true' % (field, item["vhost"], item["name"])
-                else:
-                    path = '/api/bindings/%s/e/%s/%s/%s/%s' \
-                           % (item["vhost"], item["source"], item["destination_type"][0], item["destination"],
-                              item["routing_key"])
-                self.http("DELETE", path, '')
-                self.verbose("Deleted item %s for %s" % (item, self.options.hostname))
-                # Clear element with 'delete'=True in configure file
-                dfs[field].remove(item)
-        return dfs
 
     def invoke_check(self):
         path = self.get_arg()
@@ -783,6 +739,111 @@ class Management:
                     body[opk] = item[opk]
             self.http("POST", path, json.dumps(body))
 
+    def check_merged_bindings(self, check_field, dfs):
+        exist_items = []
+        for item in dfs[check_field]:
+            mandatory_keys = CHECKTABLE[check_field]["mandatory"]
+            optional_keys = CHECKTABLE[check_field]["optional"]
+            # Check the keys
+            destination_type = ["queue", "exchange"]
+            assert_usage(item["destination_type"] in destination_type,
+                         "Destination type '%s' in '%s' is invalid!" % (item["destination_type"], item))
+            for key in item:
+                assert_usage(key in mandatory_keys or key in optional_keys, "Invalid field '%s'" % key)
+            # Check the key repetition
+            self.check_field_repetition(check_field, item, exist_items)
+            # Check the values by API
+            path = '/api/%s/%s/e/%s/%s/%s' % (
+                check_field, item["vhost"], item["source"], item["destination_type"][0], item["destination"])
+            body = {}
+            for opk in optional_keys:
+                if opk in item:
+                    body[opk] = item[opk]
+            self.http("POST", path, json.dumps(body))
+
+    def invoke_merge(self):
+        merge_args = self.get_args()
+        updated_files = []
+        delete_definition = {}
+        # Initialize delete_definition
+        for field in ['vhosts', 'queues', 'bindings', 'exchanges']:
+            delete_definition[field] = []
+        MERGETABLE = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users"]
+        merge_file_dict = {
+            "rabbit_version": "3.6.6",
+            "users": [],
+            "vhosts": [],
+            "permissions": [],
+            "queues": [],
+            "exchanges": [],
+            "bindings": []
+        }
+        # Clear marked elements
+        if len(merge_args) > 1:
+            for config_file in merge_args:
+                f = open(config_file, 'r')
+                definitions = f.read()
+                updated_definitions, delete_definition = self.update_file(definitions, delete_definition, config_file)
+                f = open(config_file,'w')
+                content = json.dumps(updated_definitions, sort_keys=False, indent=3, separators=(',', ': '))
+                f.write(content)
+            f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
+            content = json.dumps(delete_definition, sort_keys=False, indent=3, separators=(',', ': '))
+            f.write(content)
+        # Merge by fields
+        for field in MERGETABLE:
+            # Merge specified configs
+            if len(merge_args) > 1:
+                for config_file in merge_args:
+                    f = open(config_file, 'r')
+                    definitions = f.read()
+                    assert_usage(definitions is not None, "File '%s' is empty" % config_file)
+                    definitions = json.loads(definitions)
+                    merge_file_dict[field] += definitions[field]
+                # Check single merged field
+                if field in CHECKTABLE.keys():
+                    check_method = getattr(Management, "check_%s" % field)
+                    self.verbose("Merge check %s" % field)
+                    check_method(self, field, merge_file_dict)
+                    self.verbose("Merged file validation of field '%s' is OK!" % field)
+            # Merge default projects' configs
+            else:
+                for url in GITLABTABLE['config'].values():
+                    definitions = self.git_http("GET", url, '', '')
+                    assert_usage(definitions is not None, "File '%s' is empty" % url)
+                    merge_file_dict[field] += definitions[field]
+                # Check single merged field
+                if field in CHECKTABLE.keys():
+                    check_method = getattr(Management, "check_%s" % field)
+                    self.verbose("Merge check %s" % field)
+                    check_method(self, field, merge_file_dict)
+        # Clear marked elements
+        merge_file_dict, delete_definition = self.update_file(json.dumps(merge_file_dict), delete_definition, '')
+        f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
+        f.write(json.dumps(delete_definition))
+        # Check all merged fields
+        self.check_merged_bindings("bindings", merge_file_dict)
+        self.verbose("Merged definitions for %s from \'%s\'"
+                     % (self.options.hostname, merge_args))
+
+    def update_file(self, definitions, delete_definition, path):
+        try:
+            definitions = json.loads(definitions)
+        except ValueError:
+            self.verbose("File from '%s' is not json!" % path)
+            exit(1)
+        # Search marked elements
+        for field in ['vhosts', 'queues', 'bindings', 'exchanges']:
+            for item in definitions[field]:
+                if(item["delete"] == True):
+                    self.verbose("Deleting item found")
+                    # Store deleting elements
+                    delete_definition[field].append(item)
+                    print delete_definition
+                    # Clear element with 'delete'=True in configure file
+                    definitions[field].remove(item)
+        return definitions, delete_definition
+
     def invoke_export(self):
         path = self.get_arg()
         uri = "/definitions"
@@ -808,56 +869,68 @@ class Management:
         self.verbose("Imported definitions for %s from \"%s\""
                      % (self.options.hostname, path))
 
-    def invoke_merge(self):
-        merge_args = self.get_args()
-        MERGETABLE = ["vhosts", "queues", "exchanges", "bindings", "permissions", "users"]
-        merge_file_dict = {
-            "rabbit_version": "3.6.6",
-            "users": [],
-            "vhosts": [],
-            "permissions": [],
-            "queues": [],
-            "exchanges": [],
-            "bindings": []
+    def invoke_update(self):
+        path = self.get_arg()
+        f = open(path, 'r')
+        definitions = f.read()
+        assert_usage(definitions is not None, "File is empty")
+        try:
+            definitions = json.loads(definitions)
+        except ValueError:
+            self.verbose("File from '%s' is not json!" % path)
+        # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
+        for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
+            definitions = self.clear_mark_element(key, definitions)
+        f = open(path, 'w')
+        f.write(definitions)
+
+    def clear_mark_element(self, field, dfs):
+        for item in dfs[field]:
+            if item["delete"] == True:
+                # Clear element with 'delete'=True online
+                self.verbose("Deleting item found")
+                if field == 'vhosts':
+                    path = '/api/vhosts/%s' % item["name"]
+                # When deleting queues, remove their bindings
+                elif field == 'queues':
+                    path = '/api/%s/%s/%s' % (field, item["vhost"], item["name"])
+                    for element in dfs["bindings"]:
+                        if item["vhost"] == element["vhost"] and (
+                                item["name"] == element["source"] or element["destination"]):
+                            dfs["bindings"].remove(element)
+                # When deleting exchanges, check if there are related bindings
+                elif field == 'exchanges':
+                    path = '/api/%s/%s/%s?if-unused=true' % (field, item["vhost"], item["name"])
+                else:
+                    path = '/api/bindings/%s/e/%s/%s/%s/%s' \
+                           % (item["vhost"], item["source"], item["destination_type"][0], item["destination"],
+                              item["routing_key"])
+                self.http("DELETE", path, '')
+                self.verbose("Deleted item %s for %s" % (item, self.options.hostname))
+                # Clear element with 'delete'=True in configure file
+                dfs[field].remove(item)
+        return dfs
+
+    # Commit the updated definitions to Gitlab()
+    def invoke_commit(self):
+        path = self.get_arg()
+        f = open(path, 'r')
+        definitions = f.read()
+        content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
+        url = "/api/v3/projects/273/repository/files"
+        headers = {
+            'Content-type': "application/x-www-form-urlencoded",
+            'private-token': "sCp-dbLowHzo_m6rgMzz",
+            'Accept': "text/plain"
         }
-        # Merge by fields
-        for field in MERGETABLE:
-            if len(merge_args) > 1:
-                for config_file in merge_args:
-                    f = open(config_file, 'r')
-                    definitions = f.read()
-                    f.close()
-                    assert_usage(definitions is not None, "File '%s' is empty" % config_file)
-                    try:
-                        merge_file_dict[field] += json.loads(definitions)[field]
-                    except ValueError:
-                        self.verbose("File from '%s' is not json!" % config_file)
-                        exit(1)
-                # Check one merged field
-                if field in CHECKTABLE.keys():
-                    check_method = getattr(Management, "check_%s" % field)
-                    self.verbose("Merge check %s" % field)
-                    check_method(self, field, merge_file_dict)
-                    self.verbose("Merged file validation of field '%s' is OK!\n" % field)
-            else:
-                for url in GITLABTABLE['config'].values():
-                    definitions = self.git_http("GET",url,'')
-                    try:
-                        merge_file_dict[field] += json.loads(definitions)[field]
-                    except ValueError:
-                        self.verbose("File from '%s' is not json!" % url)
-                        exit(1)
-                # Check one merged field
-                if field in CHECKTABLE.keys():
-                    check_method = getattr(Management, "check_%s" % field)
-                    self.verbose("Merge check %s" % field)
-                    check_method(self,field,merge_file_dict)
-                    self.verbose("Merged file validation of field '%s' is OK!\n" % field)
-        merge_file = json.dumps(merge_file_dict)
-        # Check all merged fields
-        self.configuration_file_validation(merge_file)
-        self.verbose("Imported merged definitions for %s from \'%s\'"
-                     % (self.options.hostname, merge_args))
+        data = {}
+        data["file_path"] = 'test.config'
+        data["content"] = content
+        data["commit_message"] = 'update rabbitmq.config by marks'
+        data["branch_name"] = 'dev'
+        message = self.git_http("PUT", url, urllib.urlencode(data), headers)
+        self.verbose("File %s at branch %s has been updated" % (
+        json.loads(message)["file_path"], json.loads(message)["branch_name"]))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
@@ -1181,7 +1254,7 @@ _rabbitmqadmin()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="list show declare delete close purge update check import merge export get publish help"
+    opts="list show declare delete close purge update commit check import merge export get publish help"
     fargs="--help --host --port --vhost --username --password --format --depth --sort --sort-reverse"
 
     case "${prev}" in
@@ -1210,6 +1283,10 @@ _rabbitmqadmin()
             return 0
             ;;
         update)
+            COMPREPLY=( $(compgen -f ${cur}) )
+            return 0
+            ;;
+        commit)
             COMPREPLY=( $(compgen -f ${cur}) )
             return 0
             ;;

@@ -16,7 +16,8 @@
    ],
    "vhosts":[
       {
-         "name":"fincloud"
+         "name":"fincloud",
+	 "delete":false
       }
    ],
    "permissions":[
@@ -46,6 +47,7 @@
       {
          "name":"fincloud.queue.orderStatus",
          "vhost":"fincloud",
+	 "delete":false,
          "durable":true,
          "auto_delete":false,
          "arguments":{
@@ -57,6 +59,7 @@
       {
          "name":"fincloud.exchange.order",
          "vhost":"fincloud",
+	 "delete":false,
          "type":"topic",
          "durable":true,
          "auto_delete":false,
@@ -68,6 +71,7 @@
       {
          "name":"fincloud.exchange.notification",
          "vhost":"fincloud",
+	 "delete":false,
          "type":"topic",
          "durable":true,
          "auto_delete":false,
@@ -81,6 +85,7 @@
       {
          "source":"fincloud.exchange.order",
          "vhost":"fincloud",
+	 "delete":false,
          "destination":"fincloud.queue.orderStatus",
          "destination_type":"queue",
          "routing_key":"fincloud.routingKey.orderStatus",

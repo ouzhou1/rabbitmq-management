@@ -1,68 +1,61 @@
 {
-   "rabbit_version":"3.6.6",
-   "users":[
+   "users": [
       {
-         "name":"toms",
-         "password_hash":"OJiU6JiTgwiJd94/P+bOjFAtPVEYwAU6HWY0rrS0FCZ+OaVf",
-         "hashing_algorithm":"rabbit_password_hashing_sha256",
-         "tags":"management"
+         "hashing_algorithm": "rabbit_password_hashing_sha256",
+         "tags": "management",
+         "name": "toms",
+         "password_hash": "OJiU6JiTgwiJd94/P+bOjFAtPVEYwAU6HWY0rrS0FCZ+OaVf"
       }
    ],
-   "vhosts":[
+   "vhosts": [],
+   "queues": [
       {
-         "name":"fincloud"
+         "name": "fincloud.queue.oplog",
+         "durable": true,
+         "vhost": "fincloud",
+         "arguments": {},
+         "auto_delete": false,
+         "delete": false
       }
    ],
-   "permissions":[
+   "exchanges": [
       {
-         "user":"admin",
-         "vhost":"fincloud",
-         "configure":".*",
-         "write":".*",
-         "read":".*"
+         "name": "fincloud.exchange.oplog",
+         "durable": true,
+         "vhost": "fincloud",
+         "internal": false,
+         "arguments": {},
+         "type": "topic",
+         "auto_delete": false,
+         "delete": false
+      }
+   ],
+   "bindings": [
+      {
+         "vhost": "fincloud",
+         "destination": "fincloud.queue.oplog",
+         "routing_key": "fincloud.routingKey.oplog",
+         "source": "fincloud.exchange.oplog",
+         "arguments": {},
+         "destination_type": "queue",
+         "delete": false
+      }
+   ],
+   "rabbit_version": "3.6.6",
+   "permissions": [
+      {
+         "write": ".*",
+         "vhost": "fincloud",
+         "read": ".*",
+         "user": "admin",
+         "configure": ".*"
       },
       {
-         "user":"toms",
-         "vhost":"fincloud",
-         "configure":"^fincloud\\.(exchange|queue)\\.oplog$",
-         "write":"^fincloud\\.(exchange|queue)\\.oplog$",
-         "read":"^fincloud\\.(exchange|queue)\\.oplog$"
-      }
-   ],
-   "queues":[
-      {
-         "name":"fincloud.queue.oplog",
-         "vhost":"fincloud",
-         "durable":true,
-         "auto_delete":false,
-         "arguments":{
-
-         }
-      }
-   ],
-   "exchanges":[
-      {
-         "name":"fincloud.exchange.oplog",
-         "vhost":"fincloud",
-         "type":"topic",
-         "durable":true,
-         "auto_delete":false,
-         "internal":false,
-         "arguments":{
-
-         }
-      }
-   ],
-   "bindings":[
-      {
-         "source":"fincloud.exchange.oplog",
-         "vhost":"fincloud",
-         "destination":"fincloud.queue.oplog",
-         "destination_type":"queue",
-         "routing_key":"fincloud.routingKey.oplog",
-         "arguments":{
-
-         }
+         "write": "^fincloud\\.(exchange|queue)\\.oplog$",
+         "vhost": "fincloud",
+         "read": "^fincloud\\.(exchange|queue)\\.oplog$",
+         "user": "toms",
+         "configure": "^fincloud\\.(exchange|queue)\\.oplog$"
       }
    ]
 }

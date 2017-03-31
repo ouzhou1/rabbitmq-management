@@ -28,7 +28,7 @@ rabbitmqadmin declare user name=apollo password=apollo tags=management
 rabbitmqadmin declare vhost name=fincloud
 
 #==================== declare permissions ====================
-rabbitmqadmin declare permission vhost=fincloud user=apollo configure="^(fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan))|fincloud\.exchange\.(loan|order|oplog)$" write="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$" read="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan)|fincloud\.exchange\.(loan|order|oplog)$"
+rabbitmqadmin declare permission vhost=fincloud user=apollo configure="^(fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan|cashPledgeCollect|cashPledgeReturn))|fincloud\.exchange\.(loan|order|oplog)$" write="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan|cashPledgeCollect|cashPledgeReturn)|fincloud\.exchange\.(loan|order|oplog)$" read="^fincloud\.queue\.(loanConfirmation|buyBackLoan|orderStatus|cashPaymentLoan|cashPledgeCollect|cashPledgeReturn)|fincloud\.exchange\.(loan|order|oplog)$"
 rabbitmqadmin declare permission vhost=fincloud user=admin configure=.* write=.* read=.*
 
 #==================== declare exchanges ====================
@@ -42,6 +42,8 @@ rabbitmqadmin -N apollo --vhost=fincloud declare exchange name="fincloud.exchang
 rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.loanConfirmation" durable=true
 rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.buyBackLoan" durable=true
 rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.cashPaymentLoan" durable=true
+rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.cashPledgeCollect" durable=true
+rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.cashPledgeReturn" durable=true
 # queue for order
 rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.orderStatus" durable=true
 
@@ -49,4 +51,7 @@ rabbitmqadmin -N apollo --vhost=fincloud declare queue name="fincloud.queue.orde
 rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.loan" destination="fincloud.queue.loanConfirmation" routing_key="fincloud.routingKey.loanConfirmation"
 rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.loan" destination="fincloud.queue.buyBackLoan" routing_key="fincloud.routingKey.buyBackLoan"
 rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.loan" destination="fincloud.queue.cashPaymentLoan" routing_key="fincloud.routingKey.cashPaymentLoan"
+rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.loan" destination="fincloud.queue.cashPledgeCollect" routing_key="fincloud.routingKey.cashPledgeCollect"
+rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.loan" destination="fincloud.queue.cashPledgeReturn" routing_key="fincloud.routingKey.cashPledgeReturn"
 rabbitmqadmin -N apollo --vhost=fincloud declare binding source="fincloud.exchange.order" destination="fincloud.queue.orderStatus" routing_key="fincloud.routingKey.orderStatus"
+

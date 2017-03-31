@@ -4,9 +4,9 @@ docker run -itd --name rabbitmq_temp -p 15671:15672 -e RABBITMQ_DEFAULT_USER=adm
 
 sleep 8s
 
-./rabbit-janus-config.sh
+./rabbit-rhea-config.sh
 
-rabbitmqadmin export rabbit-janus-config
+rabbitmqadmin export rabbit-rhea-config
 
 docker stop rabbitmq_temp
 

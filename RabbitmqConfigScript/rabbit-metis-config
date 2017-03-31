@@ -10,7 +10,8 @@
    ],
    "vhosts":[
       {
-         "name":"fincloud"
+         "name":"fincloud",
+	 "delete":false
       }
    ],
    "permissions":[
@@ -31,26 +32,9 @@
    ],
    "queues":[
       {
-         "name":"fincloud.queue.buyBackLoan",
-         "vhost":"fincloud",
-         "durable":true,
-         "auto_delete":false,
-         "arguments":{
-
-         }
-      },
-      {
          "name":"fincloud.queue.notification.email",
          "vhost":"fincloud",
-         "durable":true,
-         "auto_delete":false,
-         "arguments":{
-
-         }
-      },
-      {
-         "name":"fincloud.queue.cashPaymentLoan",
-         "vhost":"fincloud",
+	 "delete":false,
          "durable":true,
          "auto_delete":false,
          "arguments":{
@@ -60,6 +44,7 @@
       {
          "name":"fincloud.queue.notification.sms",
          "vhost":"fincloud",
+	 "delete":false,
          "durable":true,
          "auto_delete":false,
          "arguments":{
@@ -71,6 +56,7 @@
       {
          "name":"fincloud.exchange.notification",
          "vhost":"fincloud",
+	 "delete":false,
          "type":"topic",
          "durable":true,
          "auto_delete":false,
@@ -80,8 +66,9 @@
          }
       },
       {
-         "name":"fincloud.exchange.loan11",
+         "name":"fincloud.exchange.loan",
          "vhost":"fincloud",
+	 "delete":false,
          "type":"topic",
          "durable":true,
          "auto_delete":false,
@@ -95,6 +82,7 @@
       {
          "source":"fincloud.exchange.loan",
          "vhost":"fincloud",
+	 "delete":false,
          "destination":"fincloud.queue.buyBackLoan",
          "destination_type":"queue",
          "routing_key":"fincloud.routingKey.buybackLoan",
@@ -105,6 +93,7 @@
       {
          "source":"fincloud.exchange.loan",
          "vhost":"fincloud",
+	 "delete":false,
          "destination":"fincloud.queue.cashPaymentLoan",
          "destination_type":"queue",
          "routing_key":"fincloud.routingKey.payLoan",
@@ -115,6 +104,7 @@
       {
          "source":"fincloud.exchange.notification",
          "vhost":"fincloud",
+	 "delete":false,
          "destination":"fincloud.queue.notification.email",
          "destination_type":"queue",
          "routing_key":"fincloud.routingKey.email",
@@ -125,6 +115,7 @@
       {
          "source":"fincloud.exchange.notification",
          "vhost":"fincloud",
+	 "delete":false,
          "destination":"fincloud.queue.notification.sms",
          "destination_type":"queue",
          "routing_key":"fincloud.routingKey.sms",

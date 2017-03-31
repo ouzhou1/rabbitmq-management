@@ -1,91 +1,83 @@
 {
-   "rabbit_version":"3.6.6",
-   "users":[
-      {
-         "name":"rhea",
-         "password_hash":"TVj4dSVsaUHqOfwG3JVbIreqb8HBhek25V1YL1PFTHE/lLyW",
-         "hashing_algorithm":"rabbit_password_hashing_sha256",
-         "tags":"management"
-      }
-   ],
-   "vhosts":[
-      {
-         "name":"fincloud",
-	 "archived":false
-      }
-   ],
-   "permissions":[
-      {
-         "user":"rhea",
-         "vhost":"fincloud",
-         "configure":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
-         "write":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
-         "read":"^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$"
-      },
-      {
-         "user":"admin",
-         "vhost":"fincloud",
-         "configure":".*",
-         "write":".*",
-         "read":".*"
-      }
-   ],
-   "queues":[
-      {
-         "name":"fincloud.queue.notification.email",
-         "vhost":"fincloud",
-	 "archived":false,
-         "durable":true,
-         "auto_delete":false,
-         "arguments":{
-
-         }
-      },
-      {
-         "name":"fincloud.queue.notification.sms",
-         "vhost":"fincloud",
-	 "archived":false,
-         "durable":true,
-         "auto_delete":false,
-         "arguments":{
-
-         }
-      }
-   ],
-   "exchanges":[
-      {
-         "name":"fincloud.exchange.notification",
-         "vhost":"fincloud",
-	 "archived":false,
-         "type":"topic",
-         "durable":true,
-         "auto_delete":false,
-         "internal":false,
-         "arguments":{
-
-         }
-      }
-   ],
-   "bindings":[
-      {
-         "source":"fincloud.exchange.notification",
-         "vhost":"fincloud",
-         "destination":"fincloud.queue.notification.email",
-         "destination_type":"queue",
-         "routing_key":"fincloud.routingKey.email",
-         "arguments":{
-
-         }
-      },
-      {
-         "source":"fincloud.exchange.notification",
-         "vhost":"fincloud",
-         "destination":"fincloud.queue.notification.sms",
-         "destination_type":"queue",
-         "routing_key":"fincloud.routingKey.sms",
-         "arguments":{
-
-         }
-      }
-   ]
+  "users": [
+    {
+      "password_hash": "eFwVekToHbee/YWM7zUxSh9TbFPHS+DQOSA1DieVtIb+JxwM",
+      "tags": "management",
+      "name": "rhea",
+      "hashing_algorithm": "rabbit_password_hashing_sha256"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "fincloud",
+      "delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "fincloud.queue.notification.email",
+      "durable": true,
+      "vhost": "fincloud",
+      "arguments": {},
+      "auto_delete": false,
+      "delete": false
+    },
+    {
+      "name": "fincloud.queue.notification.sms",
+      "durable": true,
+      "vhost": "fincloud",
+      "arguments": {},
+      "auto_delete": false,
+      "delete": false
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "fincloud.exchange.notification",
+      "durable": true,
+      "vhost": "fincloud",
+      "internal": false,
+      "arguments": {},
+      "type": "topic",
+      "auto_delete": false,
+      "delete": false
+    }
+  ],
+  "bindings": [
+    {
+      "source": "fincloud.exchange.notification",
+      "destination": "fincloud.queue.notification.email",
+      "routing_key": "fincloud.routingKey.email",
+      "vhost": "fincloud",
+      "arguments": {},
+      "destination_type": "queue",
+      "delete": false
+    },
+    {
+      "source": "fincloud.exchange.notification",
+      "destination": "fincloud.queue.notification.sms",
+      "routing_key": "fincloud.routingKey.sms",
+      "vhost": "fincloud",
+      "arguments": {},
+      "destination_type": "queue",
+      "delete": false
+    }
+  ],
+  "rabbit_version": "3.6.6",
+  "permissions": [
+    {
+      "write": "^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
+      "vhost": "fincloud",
+      "read": "^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$",
+      "user": "rhea",
+      "configure": "^(fincloud\\.queue\\.notification\\.(sms|email))|(fincloud\\.exchange\\.notification)$"
+    },
+    {
+      "write": ".*",
+      "vhost": "fincloud",
+      "read": ".*",
+      "user": "admin",
+      "configure": ".*"
+    }
+  ]
 }
