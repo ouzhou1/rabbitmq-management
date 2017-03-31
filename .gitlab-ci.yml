@@ -25,8 +25,10 @@ test:
     - ci
 deploy:
   stage: deploy
+  services:
+    - rabbitmq:3.6.6-management
   script:
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest import /home/rabbitmq-merged-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest update /home/rabbitmq-delete-definition
   only:
