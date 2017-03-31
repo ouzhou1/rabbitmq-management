@@ -885,8 +885,6 @@ class Management:
         # Clear marked elements(clear bindings first to guarantee exchanges to be correctly cleared)
         for key in ['vhosts', 'queues', 'bindings', 'exchanges']:
             definitions = self.clear_mark_element(key, definitions)
-        f = open(path, 'w')
-        f.write(definitions)
 
     def clear_mark_element(self, field, dfs):
         for item in dfs[field]:
