@@ -2,8 +2,8 @@ image: 192.168.66.59:5000/devops/dind-rabbitmq
 
 variables:
   # Configure rabbitmq environment variables
-  USER_NAME: admin
-  PASSWORD: admin123
+  USER_NAME: guest
+  PASSWORD: guest
 
 stages:
 - test
