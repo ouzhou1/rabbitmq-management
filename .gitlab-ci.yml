@@ -1,36 +1,21 @@
 image: 192.168.66.59:5000/devops/dind-rabbitmq
-
 variables:
   # Configure rabbitmq environment variables
   USER_NAME: admin
   PASSWORD: admin123
-
 stages:
-- update-test
-- check-test
-
-update-test:
-  stage: update-test
-  services:
-    - rabbitmq:3.6.6-management
-  script:
-    - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
-    - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 10.15.232.228 update /builds/ouzhou/rabbitmq-import-check/test.config
-  only:
-    - dev
-    - master
-  tags:
-    - ci
-
-check-test:
-  stage: check-test
+- deploy
+deploy:
+  stage: deploy
   services:
     - rabbitmq:3.6.6-management
   script:
     - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
     - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" check /builds/ouzhou/rabbitmq-import-check/test.config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest import /home/rabbitmq-merged-definition
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u guest -p guest update /home/rabbitmq-delete-definition
   only:
     - dev
     - master

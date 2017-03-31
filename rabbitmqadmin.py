@@ -825,7 +825,7 @@ class Management:
         f.write(json.dumps(delete_definition))
         # Check all merged fields
         self.check_merged_bindings("bindings", merge_file_dict)
-        f.open("/home/rabbitmq-merged-definition", "w")
+        f = open("/home/rabbitmq-merged-definition", "w")
         f.write(json.dumps(merge_file_dict))
         self.verbose("Merged definitions for %s from \'%s\'"
                      % (self.options.hostname, merge_args))
