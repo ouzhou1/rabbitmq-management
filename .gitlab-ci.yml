@@ -6,25 +6,12 @@ variables:
   PASSWORD: admin123
 
 stages:
-- update-test
-- check-test
+- test
+- deploy
 
-update-test:
-  stage: update-test
-  services:
-    - rabbitmq:3.6.6-management
-  script:
-    - rabbitmqadmin -H 172.16.22.74 -u "$USER_NAME" -p "$PASSWORD" export /home/rabbitmq-definition
-    - rabbitmqadmin -H rabbitmq import /home/rabbitmq-definition
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 10.15.232.228 update /builds/ouzhou/rabbitmq-import-check/test.config
-  only:
-    - dev
-    - master
-  tags:
-    - ci
 
-check-test:
-  stage: check-test
+test:
+  stage: test
   services:
     - rabbitmq:3.6.6-management
   script:
@@ -36,3 +23,16 @@ check-test:
     - master
   tags:
     - ci
+deploy:
+  stage: deploy
+  script:
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 import /home/rabbitmq-merged-definition
+    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 update /home/rabbitmq-delete-definition
+  only:
+    - dev
+    - master
+  tags:
+    - ci
+
+
