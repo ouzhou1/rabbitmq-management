@@ -5,6 +5,7 @@ variables:
   PASSWORD: admin123
 stages:
 - deploy
+
 deploy:
   stage: deploy
   services:
@@ -21,3 +22,5 @@ deploy:
     - master
   tags:
     - ci
+
+
