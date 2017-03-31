@@ -936,7 +936,7 @@ class Management:
         definitions = f.read()
         content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
         # Query current project ID
-        url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-2]
+        url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-1]
         project_id = self.git_http("GET", url, "", {})
         # Commit the updated definitions
         url = "/api/v3/projects/%s/repository/files" % project_id
@@ -950,9 +950,13 @@ class Management:
         data["content"] = content
         data["commit_message"] = 'update rabbitmq.config by marks'
         data["branch_name"] = 'master'
-        message = self.git_http("PUT", url, urllib.urlencode(data), headers)
+        conn = httplib.HTTPConnection('git.jiayincloud.com', 80)
+        conn.request("PUT", url, urllib.urlencode(data), headers)
+        response = conn.getresponse()
+        assert_usage(response.status == 200, "Commit failed! Check your argument.")
+        message = response.read().decode('utf-8')
         self.verbose("File %s at branch %s has been updated" % (
-        json.loads(message)["file_path"], json.loads(message)["branch_name"]))
+            json.loads(message)["file_path"], json.loads(message)["branch_name"]))
 
     def invoke_list(self):
         (uri, obj_info, cols) = self.list_show_uri(LISTABLE, 'list')
