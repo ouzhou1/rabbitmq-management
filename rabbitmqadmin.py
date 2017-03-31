@@ -936,7 +936,7 @@ class Management:
         definitions = f.read()
         content = json.dumps(definitions, sort_keys=False, indent=3, separators=(',', ': '))
         # Query current project ID
-        url = "/api/v3/projects/search/%s" % sys.path.split("/")[-2]
+        url = "/api/v3/projects/search/%s" % sys.path[0].split("/")[-2]
         project_id = self.git_http("GET", url, "", {})
         # Commit the updated definitions
         url = "/api/v3/projects/%s/repository/files" % project_id
