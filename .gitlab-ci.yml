@@ -18,9 +18,6 @@ deploy:
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u "$USER_NAME" -p "$PASSWORD" import /home/rabbitmq-merged-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u "$USER_NAME" -p "$PASSWORD" update /home/rabbitmq-delete-definition
     - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py commit /builds/ouzhou/rabbitmq-import-check/rabbitmq.config
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H rabbitmq -u "$USER_NAME" -p "$PASSWORD" merge /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-toms-config /builds/ouzhou/rabbitmq-import-check/RabbitmqConfigScript/rabbit-apollo-config
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u admin -p admin123 import /home/rabbitmq-merged-definition
-    - python /builds/ouzhou/rabbitmq-import-check/rabbitmqadmin.py -H 192.168.66.63 -u admin -p admin123 update /home/rabbitmq-delete-definition
   only:
     - dev
     - master
