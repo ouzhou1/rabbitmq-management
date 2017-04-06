@@ -46,9 +46,9 @@ else:
 
 VERSION = '3.6.6'
 delete_definition_store_path = ""
-local_delete_definition_store_path = "/home/rabbitmq-delete-definition"
+local_delete_definition_store_path = "/home/ouzhou/rabbitmq-delete-definition"
 private_token = 'uXWsJV-jEmJaprYcd2KB'
-GITLABTABLE = {
+GITLABTABLE = {'private_token': 'VyVzkUQxUJtxjCgB4QZ7',
                'config': {'toms': 'http://git.jiayincloud.com/fincloud/toms/raw/dev/rabbitmq.config?private_token='+private_token,
                           'apollo': 'http://git.jiayincloud.com/fincloud/apollo/raw/dev/rabbitmq.config?private_token='+private_token,
                           'demeter': 'http://git.jiayincloud.com/fincloud/demeter/raw/dev/rabbitmq.config?private_token='+private_token,
@@ -650,7 +650,7 @@ class Management:
                 assert_usage(exist_item[item_dict.keys()[0]] == item,
                              "%s '%s' are repeatedly defined and with conflicts!" % (
                              check_field.capitalize(), item_dict.keys()[0]))
-		self.verbose("ERROR: %s '%s' are repeatedly defined!" % (check_field.capitalize(), item_dict.keys()[0]))
+                self.verbose("ERROR: %s '%s' are repeatedly defined!" % (check_field.capitalize(), item_dict.keys()[0]))
                 exit(1)
         exist_items.append(item_dict)
 
@@ -806,7 +806,7 @@ class Management:
                 f = open(config_file,'w')
                 content = json.dumps(updated_definitions, sort_keys=False, indent=3, separators=(',', ': '))
                 f.write(content)
-            f = open("/home/rabbitmq-delete-definition", "w")
+            f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
             content = json.dumps(delete_definition, sort_keys=False, indent=3, separators=(',', ': '))
             f.write(content)
         # Merge by fields
@@ -836,14 +836,14 @@ class Management:
                     check_method = getattr(Management, "check_%s" % field)
                     self.verbose("Merge check %s" % field)
                     check_method(self, field, merge_file_dict)
-        # Clear marked elements
+        # Clear marked elements in file
         merge_file_dict, delete_definition = self.update_file(json.dumps(merge_file_dict), delete_definition, '')
-        f = open("/home/rabbitmq-delete-definition", "w")
+        f = open("/home/ouzhou/rabbitmq-delete-definition", "w")
         f.write(json.dumps(delete_definition))
         # Check all merged fields
         self.check_merged_bindings("bindings", merge_file_dict)
         # Store merged definitions
-        f = open("/home/rabbitmq-merged-definition", "w")
+        f = open("/home/ouzhou/rabbitmq-merged-definition", "w")
         f.write(json.dumps(merge_file_dict))
         self.verbose("Merged definitions for %s from \'%s\'"
                      % (self.options.hostname, merge_args))
@@ -861,7 +861,10 @@ class Management:
                     self.verbose("Deleting item found")
                     # Store deleting elements
                     delete_definition[field].append(item)
-                    print delete_definition
+                    if field == "queues":
+                        for binding in definitions["bindings"]:
+                            if binding["destination"] == item["name"]:
+                                definitions["bindings"].remove(binding)
                     # Clear element with 'delete'=True in configure file
                     definitions[field].remove(item)
         return definitions, delete_definition
@@ -950,7 +953,7 @@ class Management:
         data = {}
         data["file_path"] = 'rabbitmq.config'
         data["content"] = definitions
-        data["commit_message"] = 'update rabbitmq.config by marks [ci skip]'
+        data["commit_message"] = 'update rabbitmq.config by marks'
         data["branch_name"] = 'master'
         conn = httplib.HTTPConnection('git.jiayincloud.com', 80)
         conn.request("PUT", url, urllib.urlencode(data), headers)
