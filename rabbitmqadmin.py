@@ -650,6 +650,8 @@ class Management:
                 assert_usage(exist_item[item_dict.keys()[0]] == item,
                              "%s '%s' are repeatedly defined and with conflicts!" % (
                              check_field.capitalize(), item_dict.keys()[0]))
+		self.verbose("ERROR: %s '%s' are repeatedly defined!" % (check_field.capitalize(), item_dict.keys()[0]))
+                exit(1)
         exist_items.append(item_dict)
 
     # dfs refers to definitions
