@@ -953,7 +953,7 @@ class Management:
         data = {}
         data["file_path"] = 'rabbitmq.config'
         data["content"] = definitions
-        data["commit_message"] = 'update rabbitmq.config by marks'
+        data["commit_message"] = 'update rabbitmq.config by marks[ci skip]'
         data["branch_name"] = 'master'
         conn = httplib.HTTPConnection('git.jiayincloud.com', 80)
         conn.request("PUT", url, urllib.urlencode(data), headers)
